@@ -272,6 +272,34 @@ struct GeneralSettings: View {
                 .help("Tunnels only exist while Codex Remote is running, so machines show as offline until it starts.")
             }
 
+            Section {
+                Toggle("Let agents manage machines", isOn: Binding(
+                    get: { state.settings.mcpAllowWrites },
+                    set: { value in state.updateSettings { $0.mcpAllowWrites = value } }))
+                Toggle("Let agents destroy machines", isOn: Binding(
+                    get: { state.settings.mcpAllowDestroy },
+                    set: { value in state.updateSettings { $0.mcpAllowDestroy = value } }))
+                    .disabled(!state.settings.mcpAllowWrites)
+
+                HStack {
+                    Button("Copy setup command") {
+                        let binary = Bundle.main.url(forAuxiliaryExecutable: "codex-remote")?.path ?? "codex-remote"
+                        NSPasteboard.general.clearContents()
+                        NSPasteboard.general.setString("claude mcp add codex-remote -- \(binary) mcp serve",
+                                                       forType: .string)
+                        state.banner = AppState.Banner(kind: .info, message: "Copied. Run it in a terminal to connect your agent.")
+                    }
+                    Spacer()
+                }
+            } header: {
+                Text("Agent access")
+            } footer: {
+                Text("Codex Remote can run as an MCP server, so an agent can look at your machines — and, if you allow it, build and change them itself. Reading is always available once connected. Changing machines is off by default because these tools spend money on your cloud account, and destroying has its own switch because deleting the right machine is a worse mistake than creating the wrong one.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
             Section("Codex desktop app") {
                 if state.codexAppInstalled {
                     Toggle("Add machines to Codex's Remotes", isOn: Binding(

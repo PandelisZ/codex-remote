@@ -251,3 +251,55 @@ final class SetupPromptTests: XCTestCase {
         XCTAssertTrue(prompt().contains("/usr/local/bin/codex-remote"))
     }
 }
+
+/// The MCP tools spend money and can destroy servers, and an agent will call them in a
+/// loop. The permission table is the whole safety story, so it is pinned here.
+final class MCPPermissionTests: XCTestCase {
+    func testReadingIsAlwaysAllowed() {
+        let locked = MCPServer.Permissions(allowWrites: false, allowDestroy: false)
+        XCTAssertTrue(locked.permits(.read))
+    }
+
+    func testWritingIsOffUntilItIsTurnedOn() {
+        XCTAssertFalse(MCPServer.Permissions(allowWrites: false, allowDestroy: false).permits(.write))
+        XCTAssertTrue(MCPServer.Permissions(allowWrites: true, allowDestroy: false).permits(.write))
+    }
+
+    /// Creating the wrong machine costs pence; deleting the right one loses work. Allowing
+    /// changes must not quietly allow deletion too.
+    func testAllowingChangesDoesNotAllowDestroying() {
+        let writes = MCPServer.Permissions(allowWrites: true, allowDestroy: false)
+        XCTAssertTrue(writes.permits(.write))
+        XCTAssertFalse(writes.permits(.destroy))
+    }
+
+    /// Destroy without write is incoherent — the UI disables it, and the model refuses to
+    /// represent it rather than trusting the UI.
+    func testDestroyCannotBeGrantedOnItsOwn() {
+        XCTAssertFalse(MCPServer.Permissions(allowWrites: false, allowDestroy: true).permits(.destroy))
+    }
+
+    /// Every tool has to declare a level, and the money-spending ones must not be reads.
+    func testTheCostlyToolsAreNotReads() {
+        let byName = Dictionary(uniqueKeysWithValues: MCPServer.tools().map { ($0.name, $0.level) })
+        XCTAssertEqual(byName["list_machines"], .read)
+        XCTAssertEqual(byName["create_machine"], .write)
+        XCTAssertEqual(byName["run_command"], .write)
+        XCTAssertEqual(byName["destroy_machine"], .destroy)
+    }
+
+    /// An agent reading only the tool list must be able to tell that create bills the user.
+    func testCreateWarnsAboutCostInItsDescription() {
+        let create = MCPServer.tools().first { $0.name == "create_machine" }
+        XCTAssertTrue(create?.description.contains("COSTS MONEY") == true)
+        let destroy = MCPServer.tools().first { $0.name == "destroy_machine" }
+        XCTAssertTrue(destroy?.description.contains("CANNOT BE UNDONE") == true)
+    }
+
+    /// The confirm argument exists so a hallucinated name cannot delete a real machine.
+    func testDestroyRequiresAMatchingConfirmation() {
+        let destroy = MCPServer.tools().first { $0.name == "destroy_machine" }
+        let schema = destroy?.schema["required"] as? [String] ?? []
+        XCTAssertTrue(schema.contains("confirm"))
+    }
+}

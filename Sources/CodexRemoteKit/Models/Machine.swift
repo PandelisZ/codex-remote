@@ -418,6 +418,10 @@ public struct AppSettings: Codable, Sendable {
             ?? defaults.autoRestartCodexApp
         providerRegistryURL = try container.decodeIfPresent(String.self, forKey: .providerRegistryURL)
             ?? defaults.providerRegistryURL
+        mcpAllowWrites = try container.decodeIfPresent(Bool.self, forKey: .mcpAllowWrites)
+            ?? defaults.mcpAllowWrites
+        mcpAllowDestroy = try container.decodeIfPresent(Bool.self, forKey: .mcpAllowDestroy)
+            ?? defaults.mcpAllowDestroy
     }
 
     public var basePort: Int
@@ -432,6 +436,12 @@ public struct AppSettings: Codable, Sendable {
     /// in, and pointing this at your own registry gives you your own catalogue. Format:
     /// `docs/registry.md`.
     public var providerRegistryURL: String
+    /// Let an agent create, change and run commands on machines through the MCP server.
+    /// Off by default: these tools spend money, and an agent will call them in a loop.
+    public var mcpAllowWrites: Bool
+    /// Let an agent destroy a machine. Deliberately separate from `mcpAllowWrites` —
+    /// creating the wrong machine costs pence, deleting the right one loses work.
+    public var mcpAllowDestroy: Bool
     /// Add every ready machine to the Codex desktop app's Remotes list.
     public var registerWithCodexApp: Bool
     /// Quit and relaunch the Codex app automatically when its remote list changes.
@@ -445,7 +455,8 @@ public struct AppSettings: Codable, Sendable {
                 healthPollSeconds: Int = 15,
                 registerWithCodexApp: Bool = true,
                 autoRestartCodexApp: Bool = false,
-                providerRegistryURL: String = RemoteProviderRegistry.officialURL.absoluteString) {
+                providerRegistryURL: String = RemoteProviderRegistry.officialURL.absoluteString,
+                mcpAllowWrites: Bool = false, mcpAllowDestroy: Bool = false) {
         self.basePort = basePort
         self.launchAtLogin = launchAtLogin
         self.codexVersionPin = codexVersionPin
@@ -455,5 +466,7 @@ public struct AppSettings: Codable, Sendable {
         self.registerWithCodexApp = registerWithCodexApp
         self.autoRestartCodexApp = autoRestartCodexApp
         self.providerRegistryURL = providerRegistryURL
+        self.mcpAllowWrites = mcpAllowWrites
+        self.mcpAllowDestroy = mcpAllowDestroy
     }
 }

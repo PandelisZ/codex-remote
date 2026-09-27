@@ -60,6 +60,8 @@ func usage() -> String {
                                          provider's real schema. Creates nothing.
 
     CLAUDE CODE
+      mcp serve                          Run the MCP server so an agent can manage machines
+      mcp config                         Print the snippet to add it to your agent
       codex-pair <name> [--open]         Show a Codex pairing code for the machine, so it
                                          appears under Connections → Control other devices.
                                          --open jumps to that pane in the Codex app
@@ -775,6 +777,39 @@ case "codex-pair":
     } catch {
         fail(error.localizedDescription)
     }
+
+case "mcp" where args.positional.first == "serve":
+    // Nothing but JSON-RPC may go to stdout from here on; the transport writes every
+    // diagnostic to stderr for that reason.
+    let permissions = MCPServer.Permissions(allowWrites: manager.settings.mcpAllowWrites,
+                                            allowDestroy: manager.settings.mcpAllowDestroy)
+    let server = MCPServer(manager: manager, permissions: permissions)
+    await MCPTransport(server: server).serve()
+
+case "mcp" where args.positional.first == "config":
+    // The snippet to paste into an agent's MCP config.
+    let binary = CommandLine.arguments.first.map {
+        URL(fileURLWithPath: $0).standardizedFileURL.path
+    } ?? "codex-remote"
+    print("""
+    Add this to your agent's MCP servers:
+
+    {
+      "mcpServers": {
+        "codex-remote": {
+          "command": "\(binary)",
+          "args": ["mcp", "serve"]
+        }
+      }
+    }
+
+    Claude Code:  claude mcp add codex-remote -- \(binary) mcp serve
+    Codex:        add it to the [mcp_servers] table in ~/.codex/config.toml
+
+    Agents can read machine state with no further setup. Creating, changing and running
+    commands need "Let agents manage machines" in Settings; destroying needs its own
+    setting beyond that.
+    """)
 
 case "mcp":
     let servers = MCPSync.discover()
