@@ -5,565 +5,547 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Codex Remote</title>
 <meta name="description" content="A macOS menu bar app that provisions a cloud machine and wires it up as a remote Codex or Claude Code agent. Open source, not affiliated with OpenAI.">
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%2314855c'/><circle cx='16' cy='16' r='6' fill='%23fff'/></svg>">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' fill='%238C1D2C'/><rect x='7' y='10' width='18' height='3' fill='%23EDEBE6'/><rect x='7' y='16' width='18' height='3' fill='%23EDEBE6'/><rect x='7' y='22' width='11' height='3' fill='%23EDEBE6'/></svg>">
 
 <meta property="og:title" content="Codex Remote">
-<meta property="og:description" content="Give it a provider token. It builds the machine, installs the agent, and the machine shows up where you already work.">
+<meta property="og:description" content="Give it a provider token. It builds the machine, installs the agent, and hands it to the tools you already use.">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://codexremote.io">
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap">
 
 <style>
 :root {
   color-scheme: light;
 
-  --paper:    #eceef0;
-  --surface:  #ffffff;
-  --sunk:     #e2e5e8;
-  --ink:      #11161c;
-  --ink-dim:  #4d5763;
-  --ink-mute: #78828d;
-  --line:     #d3d9de;
-  --line-soft:#e2e6ea;
+  --stock:    #edebe6;
+  --stock-2:  #e4e1da;
+  --ink:      #1a1714;
+  --ink-2:    #524c44;
+  --ink-3:    #7c746a;
+  --rule:     #c9c4ba;
+  --rule-2:   #d9d5cc;
 
-  --signal:   #14855c;
-  --signal-bg:#dceee6;
-  --warn:     #9a5b12;
-  --warn-bg:  #f4e7d6;
+  --cover:    #8c1d2c;
+  --cover-ink:#f4efe7;
 
-  --term-bg:  #11161c;
-  --term-fg:  #d9e0e6;
-  --term-dim: #6f7c88;
+  --caution:  #8a4f07;
+  --ok:       #2f6b3f;
 
-  --sans: "IBM Plex Sans", ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  --mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --display: "Archivo", ui-sans-serif, system-ui, sans-serif;
+  --text: "Source Serif 4", Georgia, "Times New Roman", serif;
+  --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
 
-  --measure: 64ch;
-  --maxw: 1100px;
+  --sheet: 1120px;
 }
 
+/* Under a desk lamp rather than an inversion: darker stock, the same board red, warm ink. */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     color-scheme: dark;
-    --paper:    #0e1216;
-    --surface:  #161b21;
-    --sunk:     #1b2128;
-    --ink:      #e6e9ec;
-    --ink-dim:  #a3adb8;
-    --ink-mute: #6f7a86;
-    --line:     #262d35;
-    --line-soft:#1e242b;
-    --signal:   #3fbe89;
-    --signal-bg:#10291f;
-    --warn:     #d09343;
-    --warn-bg:  #2a2015;
-    --term-bg:  #080b0e;
-    --term-fg:  #d9e0e6;
-    --term-dim: #5d6873;
+    --stock: #171513; --stock-2: #1f1c19;
+    --ink: #eae4da; --ink-2: #b6ac9e; --ink-3: #8b8174;
+    --rule: #37322c; --rule-2: #272320;
+    --cover: #a8253a; --cover-ink: #f7f1e9;
+    --caution: #d59a3e; --ok: #6fae7d;
   }
 }
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --paper:    #0e1216;
-  --surface:  #161b21;
-  --sunk:     #1b2128;
-  --ink:      #e6e9ec;
-  --ink-dim:  #a3adb8;
-  --ink-mute: #6f7a86;
-  --line:     #262d35;
-  --line-soft:#1e242b;
-  --signal:   #3fbe89;
-  --signal-bg:#10291f;
-  --warn:     #d09343;
-  --warn-bg:  #2a2015;
-  --term-bg:  #080b0e;
-  --term-fg:  #d9e0e6;
-  --term-dim: #5d6873;
+  --stock: #171513; --stock-2: #1f1c19;
+  --ink: #eae4da; --ink-2: #b6ac9e; --ink-3: #8b8174;
+  --rule: #37322c; --rule-2: #272320;
+  --cover: #a8253a; --cover-ink: #f7f1e9;
+  --caution: #d59a3e; --ok: #6fae7d;
 }
 
 * { box-sizing: border-box; }
-html { -webkit-text-size-adjust: 100%; }
+html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
 
 body {
   margin: 0;
-  background: var(--paper);
+  background: var(--stock);
   color: var(--ink);
-  font-family: var(--sans);
-  font-size: 16.5px;
-  line-height: 1.6;
+  font-family: var(--text);
+  font-size: 18px;
+  line-height: 1.62;
   -webkit-font-smoothing: antialiased;
   overflow-x: hidden;
 }
 
-.wrap { max-width: var(--maxw); margin: 0 auto; padding-inline: 20px; }
+::selection { background: var(--cover); color: var(--cover-ink); }
+:focus-visible { outline: 2px solid var(--cover); outline-offset: 3px; }
+::-webkit-scrollbar { width: 12px; height: 12px; }
+::-webkit-scrollbar-track { background: var(--stock-2); }
+::-webkit-scrollbar-thumb { background: var(--rule); border: 3px solid var(--stock-2); }
+::-webkit-scrollbar-thumb:hover { background: var(--ink-3); }
+* { scrollbar-color: var(--rule) var(--stock-2); scrollbar-width: thin; }
 
-a { color: var(--ink); text-underline-offset: 3px; text-decoration-color: var(--line); }
-a:hover { text-decoration-color: currentColor; }
+.sheet { max-width: var(--sheet); margin: 0 auto; padding-inline: 24px; }
 
-h1, h2, h3 { margin: 0; line-height: 1.12; letter-spacing: -0.021em; text-wrap: balance; font-weight: 600; }
+a { color: inherit; text-decoration-color: var(--rule); text-underline-offset: 3px; }
+a:hover { text-decoration-color: var(--cover); }
 
-:focus-visible { outline: 2px solid var(--signal); outline-offset: 2px; }
+h1, h2, h3 { font-family: var(--display); font-weight: 600; margin: 0; line-height: 1.1;
+             letter-spacing: -0.025em; text-wrap: balance; }
 
-/* mono is the machine's voice: hostnames, units, regions, commands */
-.m { font-family: var(--mono); font-variant-ligatures: none; }
+code { font-family: var(--mono); font-variant-ligatures: none; }
 
-.eyebrow {
-  font-family: var(--mono);
-  font-size: 12px; font-weight: 500;
-  letter-spacing: 0.1em; text-transform: uppercase;
-  color: var(--ink-mute);
-  display: flex; align-items: center; gap: 12px;
-  margin-bottom: 18px;
+.board { background: var(--cover); color: var(--cover-ink); }
+.board a { color: inherit; }
+
+.board-top {
+  display: flex; align-items: center; gap: 18px;
+  padding-block: 13px;
+  border-bottom: 1px solid rgb(255 255 255 / 0.18);
+  font-family: var(--display); font-size: 14px;
 }
-.eyebrow::after { content: ""; flex: 1; height: 1px; background: var(--line); }
+.board-top .imprint { font-weight: 600; }
+.board-top nav { margin-left: auto; display: flex; gap: 22px; }
+.board-top nav a { text-decoration: none; opacity: 0.88; }
+.board-top nav a:hover { opacity: 1; text-decoration: underline; text-decoration-color: currentColor; }
+@media (max-width: 660px) { .board-top nav a.opt { display: none; } }
 
-/* ---------- masthead ---------- */
+.cover { padding-block: 56px 44px; display: grid; gap: 30px;
+         grid-template-columns: minmax(0, 1fr) auto; align-items: end; }
+@media (max-width: 820px) { .cover { grid-template-columns: 1fr; gap: 20px; padding-block: 40px 32px; } }
 
-header { border-bottom: 1px solid var(--line); background: var(--paper); }
-.masthead { display: flex; align-items: center; gap: 16px; height: 60px; }
-.brand { display: flex; align-items: center; gap: 10px; font-weight: 600; letter-spacing: -0.015em; text-decoration: none; }
-.brand .led {
-  width: 10px; height: 10px; border-radius: 50%;
-  background: var(--signal); flex: none;
-  box-shadow: 0 0 0 3px var(--signal-bg);
+.cover h1 { font-size: clamp(46px, 9vw, 104px); font-weight: 700; letter-spacing: -0.035em; }
+.cover .edition {
+  font-family: var(--display); font-size: clamp(15px, 2vw, 19px);
+  letter-spacing: 0.26em; text-transform: uppercase; margin-top: 12px; opacity: 0.88;
 }
-.masthead nav { margin-left: auto; display: flex; gap: 22px; align-items: center; }
-.masthead nav a { font-size: 14.5px; color: var(--ink-dim); text-decoration: none; font-family: var(--mono); }
-.masthead nav a:hover { color: var(--ink); }
-@media (max-width: 620px) { .masthead nav a.opt { display: none; } }
-
-/* ---------- buttons ---------- */
-
-.btn {
-  display: inline-flex; align-items: center; gap: 9px;
-  padding: 11px 17px; border-radius: 3px;
-  font-family: var(--mono); font-size: 14px; font-weight: 500;
-  text-decoration: none; border: 1px solid transparent; cursor: pointer;
+.plate {
+  font-family: var(--mono); font-size: 12px; line-height: 1.85;
+  text-align: right; opacity: 0.85; white-space: nowrap;
+  font-variant-numeric: tabular-nums;
 }
-.btn-solid { background: var(--ink); color: var(--paper); }
-.btn-solid:hover { opacity: 0.88; }
-.btn-line { border-color: var(--line); color: var(--ink); background: var(--surface); }
-.btn-line:hover { border-color: var(--ink-mute); }
+@media (max-width: 820px) { .plate { text-align: left; } }
 
-/* ---------- hero ---------- */
+.leaf { padding-block: 52px; border-bottom: 1px solid var(--rule); }
+.leaf:last-of-type { border-bottom: 0; }
 
-.hero { padding-block: 64px 44px; display: grid; grid-template-columns: 1.05fr 0.95fr; gap: 56px; align-items: start; }
-@media (max-width: 900px) { .hero { grid-template-columns: 1fr; gap: 36px; padding-block: 44px 32px; } }
-
-.hero h1 { font-size: clamp(33px, 5.2vw, 52px); font-weight: 700; letter-spacing: -0.03em; }
-.hero p { color: var(--ink-dim); font-size: 17.5px; max-width: 46ch; margin: 20px 0 0; }
-.hero .actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 28px; }
-.hero .req { font-family: var(--mono); font-size: 12.5px; color: var(--ink-mute); margin-top: 16px; }
-
-/* ---------- the screenshot (hero centrepiece) ---------- */
-
-.shot { margin: 0; }
-.shot img {
-  display: block; width: 100%; height: auto; max-width: 100%;
-  border: 1px solid var(--line); border-radius: 8px;
-  background: var(--surface);
-  box-shadow: 0 1px 2px rgb(0 0 0 / 0.04), 0 18px 40px -22px rgb(0 0 0 / 0.35);
+.sec { display: grid; grid-template-columns: 5.5rem minmax(0, 1fr); gap: 24px; align-items: baseline; }
+@media (max-width: 720px) { .sec { grid-template-columns: 1fr; gap: 6px; } }
+.sec > .no {
+  font-family: var(--mono); font-size: 13px; color: var(--ink-3);
+  padding-top: 0.5em; font-variant-numeric: tabular-nums;
 }
-.shot figcaption {
-  font-family: var(--mono); font-size: 12px; color: var(--ink-mute);
-  margin-top: 12px;
+.sec h2 { font-size: clamp(25px, 3.4vw, 36px); }
+.sec .lede { margin: 14px 0 0; max-width: 68ch; color: var(--ink-2); }
+
+.body { max-width: 68ch; }
+.body p { margin: 16px 0 0; }
+.body p:first-child { margin-top: 0; }
+
+.spread { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr); gap: 46px; align-items: start; }
+@media (max-width: 940px) { .spread { grid-template-columns: 1fr; gap: 32px; } }
+
+.pitch { font-size: clamp(21px, 2.5vw, 26px); line-height: 1.42; margin: 0; max-width: 20ch; }
+.pitch em { font-style: normal; color: var(--cover); }
+.sub { margin: 18px 0 0; color: var(--ink-2); max-width: 46ch; }
+
+.proc { margin: 26px 0 0; padding: 0; list-style: none; counter-reset: step; }
+.proc > li {
+  counter-increment: step;
+  display: grid; grid-template-columns: 2.1rem minmax(0, 1fr); gap: 14px;
+  padding-block: 12px; border-top: 1px solid var(--rule-2);
 }
-
-/* ---------- the panel (unused by the hero; kept for inline UI fragments) ---------- */
-
-.panel {
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  overflow: hidden;
-  box-shadow: 0 1px 2px rgb(0 0 0 / 0.04), 0 12px 32px -18px rgb(0 0 0 / 0.3);
+.proc > li:first-child { border-top: 1px solid var(--ink); }
+.proc > li:last-child { border-bottom: 1px solid var(--ink); }
+.proc > li::before {
+  content: counter(step) ".";
+  font-family: var(--mono); font-size: 14px; color: var(--cover); padding-top: 0.42em;
+  font-variant-numeric: tabular-nums;
 }
-.panel-top {
-  display: flex; align-items: baseline; gap: 10px;
-  padding: 13px 16px; border-bottom: 1px solid var(--line-soft);
+.proc .what { font-family: var(--display); font-size: 15.5px; font-weight: 500; }
+.proc .note { color: var(--ink-2); font-size: 15.5px; margin-top: 3px; }
+
+.cmd {
+  display: flex; align-items: center; gap: 12px; margin-top: 9px;
+  background: var(--stock-2); border: 1px solid var(--rule);
+  padding: 11px 13px; overflow-x: auto;
 }
-.panel-top b { font-size: 14.5px; font-weight: 600; }
-.panel-top .count { font-family: var(--mono); font-size: 12px; color: var(--ink-mute); margin-left: auto; }
-
-.row { display: grid; grid-template-columns: auto 1fr auto; gap: 12px; align-items: center; padding: 13px 16px; border-bottom: 1px solid var(--line-soft); }
-.row:last-of-type { border-bottom: 0; }
-.row .led { width: 8px; height: 8px; border-radius: 50%; background: var(--signal); }
-.row .led.off { background: var(--ink-mute); }
-.row .name { font-family: var(--mono); font-size: 14px; font-weight: 500; }
-.row .sub { font-family: var(--mono); font-size: 11.5px; color: var(--ink-mute); margin-top: 3px; }
-.row .open { font-family: var(--mono); font-size: 11.5px; color: var(--ink-dim); border: 1px solid var(--line); border-radius: 3px; padding: 3px 9px; }
-
-.panel-foot { padding: 11px 16px; background: var(--sunk); font-family: var(--mono); font-size: 11.5px; color: var(--ink-mute); display: flex; gap: 14px; }
-
-/* ---------- sections ---------- */
-
-.section { padding-block: 66px; border-top: 1px solid var(--line); }
-.section > .lead { max-width: var(--measure); }
-.section h2 { font-size: clamp(24px, 3.2vw, 31px); }
-.section .lead p { color: var(--ink-dim); margin: 14px 0 0; }
-
-/* ---------- the chores table ---------- */
-
-.chores { margin-top: 38px; display: grid; gap: 0; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; background: var(--surface); }
-.chore { display: grid; grid-template-columns: 1fr 1fr; border-bottom: 1px solid var(--line-soft); }
-.chore:last-child { border-bottom: 0; }
-@media (max-width: 760px) { .chore { grid-template-columns: 1fr; } }
-
-.chore > div { padding: 22px 24px; }
-.chore .then { border-right: 1px solid var(--line-soft); background: var(--sunk); }
-@media (max-width: 760px) { .chore .then { border-right: 0; border-bottom: 1px solid var(--line-soft); } }
-
-.tag {
-  font-family: var(--mono); font-size: 10.5px; font-weight: 500;
-  letter-spacing: 0.09em; text-transform: uppercase;
-  display: inline-block; padding: 2px 7px; border-radius: 3px; margin-bottom: 11px;
+/* The install command is the primary action; it may wrap rather than be clipped at a
+   narrow measure, and the copy button still takes the whole thing either way. */
+.cmd code { font-size: 14px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.cmd { align-items: flex-start; }
+.cmd .sigil, .cmd .copy { padding-top: 1px; }
+.cmd .sigil { color: var(--ink-3); user-select: none; font-family: var(--mono); font-size: 14px; }
+.copy {
+  margin-left: auto; flex: none; cursor: pointer;
+  font-family: var(--display); font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase;
+  background: transparent; color: var(--ink-2);
+  border: 1px solid var(--rule); padding: 5px 10px;
 }
-.tag.pain { color: var(--warn); background: var(--warn-bg); }
-.tag.fix  { color: var(--signal); background: var(--signal-bg); }
-.chore h3 { font-size: 16px; font-weight: 600; margin-bottom: 8px; }
-.chore p { margin: 0; color: var(--ink-dim); font-size: 15px; }
-.chore code { font-family: var(--mono); font-size: 0.88em; background: var(--paper); padding: 1px 4px; border-radius: 3px; }
+.copy:hover { color: var(--cover-ink); background: var(--cover); border-color: var(--cover); }
 
-/* ---------- demo ---------- */
-
-.screen { margin-top: 34px; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; background: var(--surface); }
-.screen video, .screen img { display: block; width: 100%; max-width: 100%; height: auto; background: var(--term-bg); }
-.screen-bar { display: flex; align-items: center; gap: 8px; padding: 10px 14px; border-bottom: 1px solid var(--line-soft); background: var(--sunk); }
-.screen-bar i { width: 9px; height: 9px; border-radius: 50%; background: var(--line); display: block; }
-.screen-bar span { font-family: var(--mono); font-size: 11.5px; color: var(--ink-mute); margin-left: 6px; }
-.screen figcaption { font-family: var(--mono); font-size: 12px; color: var(--ink-mute); padding: 11px 14px; border-top: 1px solid var(--line-soft); }
-
-/* ---------- stages ---------- */
-
-.stages { margin-top: 34px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); overflow: hidden; }
-.stage { display: grid; grid-template-columns: 4.5rem 1fr; gap: 20px; padding: 20px 24px; border-bottom: 1px solid var(--line-soft); }
-.stage:last-child { border-bottom: 0; }
-@media (max-width: 620px) { .stage { grid-template-columns: 1fr; gap: 8px; } }
-.stage .k { font-family: var(--mono); font-size: 12px; color: var(--ink-mute); letter-spacing: 0.06em; text-transform: uppercase; padding-top: 3px; }
-.stage h3 { font-size: 16px; margin-bottom: 7px; }
-.stage p { margin: 0; color: var(--ink-dim); font-size: 15px; max-width: 62ch; }
-.stage code { font-family: var(--mono); font-size: 0.88em; }
-
-/* ---------- terminal blocks ---------- */
-
-.term {
-  background: var(--term-bg); color: var(--term-fg);
-  border-radius: 5px; padding: 15px 16px;
-  font-family: var(--mono); font-size: 13.5px; line-height: 1.75;
-  display: flex; align-items: flex-start; gap: 11px;
-  overflow-x: auto;
+figure { margin: 0; }
+figure img { display: block; width: 100%; height: auto; border: 1px solid var(--rule); background: var(--stock-2); }
+figcaption {
+  font-family: var(--display); font-size: 13.5px; color: var(--ink-2);
+  margin-top: 11px; padding-top: 9px; border-top: 1px solid var(--rule-2);
 }
-.term .p { color: var(--term-dim); user-select: none; flex: none; }
-.term code { white-space: pre; color: inherit; }
-.term button {
-  margin-left: auto; flex: none; background: transparent; color: var(--term-dim);
-  border: 1px solid #ffffff22; border-radius: 3px; cursor: pointer;
-  font-family: var(--mono); font-size: 11.5px; padding: 3px 8px;
+figcaption b { font-weight: 600; color: var(--ink); }
+
+.caution { margin-top: 26px; border-top: 2px solid var(--caution); border-bottom: 1px solid var(--rule); padding: 13px 0 15px; max-width: 68ch; }
+.caution .label {
+  font-family: var(--display); font-size: 12px; font-weight: 700;
+  letter-spacing: 0.16em; text-transform: uppercase; color: var(--caution);
 }
-.term button:hover { color: var(--term-fg); border-color: #ffffff44; }
+.caution p { margin: 7px 0 0; font-size: 16.5px; color: var(--ink-2); }
+.caution code { font-size: 0.86em; }
 
-.install { margin-top: 34px; display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
-@media (max-width: 760px) { .install { grid-template-columns: 1fr; } }
-.way h3 { font-size: 16px; margin-bottom: 6px; }
-.way > p { color: var(--ink-dim); font-size: 14.5px; margin: 0 0 14px; }
-.way ul { list-style: none; padding: 0; margin: 13px 0 0; font-family: var(--mono); font-size: 12.5px; color: var(--ink-mute); }
-.way li { padding: 2px 0; }
-.way li::before { content: "· "; }
-
-/* ---------- disclaimer ---------- */
-
-.notice {
-  margin-top: 56px; padding: 22px 24px;
-  border: 1px solid var(--line); border-radius: 6px;
-  background: var(--surface);
-  font-size: 15px; color: var(--ink-dim); max-width: var(--measure);
+.tbl { width: 100%; border-collapse: collapse; margin-top: 22px; font-size: 16.5px; }
+.tbl caption {
+  font-family: var(--display); font-size: 13.5px; color: var(--ink-2);
+  text-align: left; padding-bottom: 9px;
 }
-.notice b { color: var(--ink); font-weight: 600; }
+.tbl th, .tbl td { text-align: left; padding: 11px 16px 11px 0; vertical-align: top; }
+.tbl thead th {
+  font-family: var(--display); font-size: 12px; font-weight: 600;
+  letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-3);
+  border-bottom: 1px solid var(--ink);
+}
+.tbl tbody tr + tr td { border-top: 1px solid var(--rule-2); }
+.tbl tbody tr:last-child td { border-bottom: 1px solid var(--ink); }
+.tbl .k { font-family: var(--mono); font-size: 14px; white-space: nowrap; }
+.tbl .req { font-family: var(--display); font-size: 13px; color: var(--ink-3); white-space: nowrap; }
 
-footer { border-top: 1px solid var(--line); padding-block: 30px 48px; }
-.foot { display: flex; flex-wrap: wrap; gap: 16px; align-items: center; font-family: var(--mono); font-size: 13px; color: var(--ink-mute); }
-.foot nav { margin-left: auto; display: flex; gap: 20px; flex-wrap: wrap; }
-.foot a { color: var(--ink-dim); text-decoration: none; }
-.foot a:hover { color: var(--ink); }
+.cols { columns: 2; column-gap: 46px; }
+.cols p { break-inside: avoid; margin: 0 0 15px; }
+@media (max-width: 820px) { .cols { columns: 1; } }
 
-@media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+.against { margin-top: 26px; border-top: 1px solid var(--ink); }
+.against > div { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); border-bottom: 1px solid var(--rule-2); }
+.against > div:last-child { border-bottom: 1px solid var(--ink); }
+@media (max-width: 760px) { .against > div { grid-template-columns: 1fr; } }
+.against .col { padding: 18px 22px 20px 0; }
+.against .col + .col { padding-left: 24px; border-left: 1px solid var(--rule-2); }
+@media (max-width: 760px) {
+  .against .col + .col { padding-left: 0; border-left: 0; border-top: 1px solid var(--rule-2); }
+}
+.against h3 { font-size: 16.5px; margin-bottom: 7px; }
+.against p { margin: 0; font-size: 16px; color: var(--ink-2); }
+.against .mark {
+  font-family: var(--display); font-size: 11.5px; font-weight: 700; letter-spacing: 0.14em;
+  text-transform: uppercase; display: block; margin-bottom: 9px;
+}
+.against .before .mark { color: var(--ink-3); }
+.against .after .mark { color: var(--ok); }
+
+.colophon { background: var(--cover); color: var(--cover-ink); padding-block: 40px 52px; }
+.colophon a { color: inherit; }
+.colophon .grid { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 40px; align-items: start; }
+@media (max-width: 760px) { .colophon .grid { grid-template-columns: 1fr; gap: 26px; } }
+.colophon h2 { font-size: 22px; margin-bottom: 12px; }
+.colophon p { margin: 0 0 14px; font-size: 16.5px; opacity: 0.93; max-width: 58ch; }
+.colophon .links { display: flex; flex-wrap: wrap; gap: 20px; font-family: var(--display); font-size: 15px; }
+.colophon .stamp { font-family: var(--mono); font-size: 12px; line-height: 1.9; opacity: 0.82; }
 </style>
 </head>
 <body>
 
-<header>
-  <div class="wrap masthead">
-    <a class="brand" href="#top"><span class="led"></span> Codex Remote</a>
+<header class="board">
+  <div class="sheet board-top">
+    <span class="imprint">Codex Remote</span>
     <nav>
-      <a class="opt" href="#chores">Why</a>
-      <a class="opt" href="#demo">More</a>
-      <a href="#install">Install</a>
+      <a class="opt" href="#s1">Install</a>
+      <a class="opt" href="#s2">Why</a>
+      <a class="opt" href="#s4">Agents</a>
       <a href="https://github.com/PandelisZ/codex-remote">GitHub</a>
     </nav>
   </div>
+
+  <div class="sheet cover">
+    <div>
+      <h1>Codex Remote</h1>
+      <div class="edition">Operator&rsquo;s Guide</div>
+    </div>
+    <div class="plate">
+      VERSION 0.2.0<br>
+      MACOS 15 OR LATER<br>
+      APPLE SILICON / INTEL<br>
+      MIT &middot; OPEN SOURCE
+    </div>
+  </div>
 </header>
 
-<main id="top">
+<main>
 
-<section class="wrap hero">
-  <div>
-    <h1>A machine for your agent, in about four minutes.</h1>
-    <p>
-      Codex Remote is a macOS menu bar app. Give it a token for a cloud you already
-      pay for; it builds the server, installs Codex and Claude&nbsp;Code, carries your
-      MCP servers over, and hands the machine to the tools you already use.
-    </p>
-    <div class="actions">
-      <a class="btn btn-solid" href="#install">Install</a>
-      <a class="btn btn-line" href="https://github.com/PandelisZ/codex-remote">Source</a>
-    </div>
-    <p class="req">macOS 15+ · Apple silicon or Intel · MIT</p>
-  </div>
+<section class="sheet leaf" id="s1">
+  <div class="spread">
+    <div>
+      <p class="pitch">A machine for your agent, in about <em>four minutes</em>.</p>
+      <p class="sub">
+        Give it a token for a cloud you already pay for. It builds the server, installs
+        Codex and Claude&nbsp;Code, carries your MCP servers over, and hands the machine to
+        the tools you already work in.
+      </p>
 
-  <figure class="shot">
-    <img src="img/panel.png" width="768" height="374"
-         alt="The Codex Remote menu bar panel: one machine called demo on Hetzner, showing a blue idle indicator and the line “idle · CPU 0% · RAM 0.6/7.6 GB”, with an Open button and a New machine button.">
-    <figcaption>A real machine, live. Blue means idle — nothing running, safe to stop.</figcaption>
-  </figure>
+      <ol class="proc">
+        <li>
+          <div>
+            <div class="what">Install it</div>
+            <div class="cmd">
+              <span class="sigil">$</span>
+              <code id="c-brew">brew install --cask pandelisz/tap/codex-remote</code>
+              <button class="copy" data-copy="#c-brew">Copy</button>
+            </div>
+          </div>
+        </li>
+        <li>
+          <div>
+            <div class="what">Add a cloud token</div>
+            <div class="note">
+              Hetzner, AWS, DigitalOcean, Linode, Vultr or Scaleway. It goes to your login
+              keychain, never to a file or to OpenTofu&rsquo;s state.
+            </div>
+          </div>
+        </li>
+        <li>
+          <div>
+            <div class="what">Press New machine</div>
+            <div class="note">
+              Or hand the job to an agent, which can create and configure machines itself.
+            </div>
+          </div>
+        </li>
+      </ol>
 
-</section>
-
-<section class="wrap section" id="chores">
-  <div class="lead">
-    <div class="eyebrow">The chores</div>
-    <h2>Renting a box takes a minute. Making an agent live on it doesn’t.</h2>
-    <p>
-      None of this is hard. All of it is fiddly, none of it is interesting, and you do
-      every bit of it again for the next machine.
-    </p>
-  </div>
-
-  <div class="chores">
-    <div class="chore">
-      <div class="then">
-        <span class="tag pain">By hand</span>
-        <h3>Edit <code>~/.ssh/config</code> and hope</h3>
-        <p>An <code>Include</code> won’t do. Codex parses that file with a library that
-           never expands them, so a host behind one is invisible and you get no error
-           explaining why.</p>
-      </div>
-      <div>
-        <span class="tag fix">Codex Remote</span>
-        <h3>The block is written where it’s read</h3>
-        <p>Inline, above your <code>Host *</code> so first-match can’t override it, inside
-           markers it can remove again cleanly.</p>
-      </div>
-    </div>
-
-    <div class="chore">
-      <div class="then">
-        <span class="tag pain">By hand</span>
-        <h3>Install, log in, answer the wizard</h3>
-        <p>Node, the CLI, an OAuth round trip, then a first-run prompt that blocks forever
-           under a service manager because nobody is there to pick a theme.</p>
-      </div>
-      <div>
-        <span class="tag fix">Codex Remote</span>
-        <h3>Bootstrapped and signed in</h3>
-        <p>Wizards pre-answered. Claude&nbsp;Code runs as its own <code>claude</code> user with
-           its own login, never a copy of your Mac’s — two installs can’t share one
-           refresh token.</p>
+      <div class="caution">
+        <div class="label">Caution</div>
+        <p>
+          This build is ad-hoc signed, not notarised, so macOS calls a downloaded copy
+          &ldquo;damaged&rdquo;. That is the quarantine flag rather than a corrupt download,
+          and right-click &rarr; Open does not clear it. Homebrew removes the flag for you;
+          after a manual download, run
+          <code>xattr -dr com.apple.quarantine /Applications/CodexRemote.app</code>.
+        </p>
       </div>
     </div>
 
-    <div class="chore">
-      <div class="then">
-        <span class="tag pain">By hand</span>
-        <h3>Keep a terminal open</h3>
-        <p>Close the lid and lose the session. Reboot the box and find out days later that
-           the agent never came back.</p>
-      </div>
-      <div>
-        <span class="tag fix">Codex Remote</span>
-        <h3>Units, enabled at boot</h3>
-        <p>Everything it installs shares one prefix, so
-           <code>systemctl status 'codex-remote-*'</code> shows the lot — and a stop/start
-           brings all of it back.</p>
-      </div>
-    </div>
-
-    <div class="chore">
-      <div class="then">
-        <span class="tag pain">By hand</span>
-        <h3>Leave your MCP servers behind</h3>
-        <p>The remote agent is a stranger to every tool you’ve already wired up.</p>
-      </div>
-      <div>
-        <span class="tag fix">Codex Remote</span>
-        <h3>They travel</h3>
-        <p>Portable servers are copied over. Ones that point at a path only your Mac has
-           are left behind deliberately, and it names each one and why.</p>
-      </div>
-    </div>
+    <figure>
+      <img src="img/panel.png" width="768" height="374"
+           alt="The Codex Remote menu bar panel. One machine named demo on Hetzner shows a blue idle indicator and the line idle, CPU 0 percent, RAM 0.5 of 7.6 GB, beside a power toggle and an Open button.">
+      <figcaption>
+        <b>Figure 1.</b> A machine running on Hetzner. Blue means idle &mdash; nothing is
+        using it, so stopping it interrupts nothing. Green means sessions are running, and
+        the row says how many.
+      </figcaption>
+    </figure>
   </div>
 </section>
 
-<section class="wrap section" id="demo">
-  <div class="lead">
-    <div class="eyebrow">Three more things</div>
-    <h2>The parts that usually get left out.</h2>
-  </div>
+<section class="sheet leaf" id="s2">
+  <div class="sec">
+    <div class="no">2</div>
+    <div>
+      <h2>Renting a box takes a minute. Making an agent live on one doesn&rsquo;t.</h2>
+      <p class="lede">
+        None of this is hard. All of it is fiddly, none of it is interesting, and you do
+        every bit of it again for the next machine.
+      </p>
 
-  <div class="stages" style="margin-top:34px">
-    <div class="stage">
-      <div class="k">Project</div>
-      <div>
-        <h3><code>codex-remote push my-box</code></h3>
-        <p>Clones when your work is pushed, copies when it isn’t — a dirty tree stops being
-           cloneable rather than quietly arriving as last week’s code. Sends the untracked
-           <code>.env</code> files a clone cannot carry, which is why a clone alone always
-           leaves you with a project that doesn’t run. Skips <code>node_modules</code>
-           instead of shipping macOS native modules to Linux.</p>
-      </div>
-    </div>
-    <div class="stage">
-      <div class="k">Agents</div>
-      <div>
-        <h3>An MCP server, so the agent builds its own box</h3>
-        <p>It knows what it needs better than you do while you’re picking from a dropdown.
-           Reading is always on; creating and running commands are off by default because
-           they bill to your cloud account; destroying has its own switch, because creating
-           the wrong machine costs pence and deleting the right one loses work.</p>
-      </div>
-    </div>
-    <div class="stage">
-      <div class="k">Clouds</div>
-      <div>
-        <h3>A registry, not a release</h3>
-        <p>A cloud is just OpenTofu HCL plus the environment its credentials map onto, so
-           the catalogue is a JSON file fetched at runtime. Add a provider by opening a pull
-           request, or point the app at your own registry — your homelab, your baked-in
-           packages. Remote HCL is pinned to a SHA-256, so nobody can change what runs
-           against your credentials after you reviewed it.</p>
+      <div class="against">
+        <div>
+          <div class="col before">
+            <span class="mark">By hand</span>
+            <h3>Edit <code>~/.ssh/config</code> and hope</h3>
+            <p>An <code>Include</code> won&rsquo;t do: Codex parses that file with a library
+               that never expands them, so a host behind one is invisible and nothing says why.</p>
+          </div>
+          <div class="col after">
+            <span class="mark">Codex Remote</span>
+            <h3>The block is written where it&rsquo;s read</h3>
+            <p>Inline, above your <code>Host *</code> so first-match cannot override it,
+               inside markers it can cleanly remove again.</p>
+          </div>
+        </div>
+
+        <div>
+          <div class="col before">
+            <span class="mark">By hand</span>
+            <h3>Install, log in, answer the wizard</h3>
+            <p>Node, the CLI, an OAuth round trip, then a first-run prompt that blocks
+               forever under a service manager because nobody is there to pick a theme.</p>
+          </div>
+          <div class="col after">
+            <span class="mark">Codex Remote</span>
+            <h3>Bootstrapped and signed in</h3>
+            <p>Wizards pre-answered. Claude&nbsp;Code runs as its own <code>claude</code>
+               account with its own login &mdash; two installs cannot share one refresh token.</p>
+          </div>
+        </div>
+
+        <div>
+          <div class="col before">
+            <span class="mark">By hand</span>
+            <h3>Keep a terminal open</h3>
+            <p>Close the lid and lose the session. Reboot the box and find out days later
+               that the agent never came back.</p>
+          </div>
+          <div class="col after">
+            <span class="mark">Codex Remote</span>
+            <h3>Units, enabled at boot</h3>
+            <p>Everything it installs shares one prefix, so
+               <code>systemctl status 'codex-remote-*'</code> shows the lot, and a
+               stop/start brings all of it back.</p>
+          </div>
+        </div>
+
+        <div>
+          <div class="col before">
+            <span class="mark">By hand</span>
+            <h3>Leave your project and your tools behind</h3>
+            <p>A clone arrives without the gitignored <code>.env</code>, so the code is all
+               there and the project still does not run.</p>
+          </div>
+          <div class="col after">
+            <span class="mark">Codex Remote</span>
+            <h3>Both travel</h3>
+            <p><code>codex-remote push</code> clones or copies, then sends the untracked
+               config separately. Portable MCP servers come across with it.</p>
+          </div>
+        </div>
       </div>
     </div>
   </div>
 </section>
 
-<section class="wrap section">
-  <div class="lead">
-    <div class="eyebrow">What it does</div>
-    <h2>Four stages, then it’s yours.</h2>
-  </div>
-
-  <div class="stages">
-    <div class="stage">
-      <div class="k">01</div>
-      <div>
-        <h3>Create</h3>
-        <p>OpenTofu applies a small per-cloud module and makes one server with your key on
-           it. Each machine gets its own state file, so one can never disturb another.</p>
-      </div>
-    </div>
-    <div class="stage">
-      <div class="k">02</div>
-      <div>
-        <h3>Bootstrap over SSH</h3>
-        <p>Base packages, the Codex CLI at <code>/usr/local/bin/codex</code>,
-           Claude&nbsp;Code under its own account, your MCP servers, and a systemd unit for
-           each agent.</p>
-      </div>
-    </div>
-    <div class="stage">
-      <div class="k">03</div>
-      <div>
-        <h3>Register</h3>
-        <p>A <code>Host codex-remote-&lt;name&gt;</code> block goes into your SSH config —
-           which is how the Codex app finds a machine and starts
+<section class="sheet leaf" id="s3">
+  <div class="sec">
+    <div class="no">3</div>
+    <div>
+      <h2>What happens when you add a machine</h2>
+      <div class="cols" style="margin-top:20px">
+        <p><b>It creates the server.</b> OpenTofu applies a small per-cloud module and makes
+           one machine with your key on it. Each gets its own state file, so one can never
+           disturb another.</p>
+        <p><b>It bootstraps over SSH.</b> Base packages, the Codex CLI at
+           <code>/usr/local/bin/codex</code>, Claude&nbsp;Code under its own account, your
+           MCP servers, and a systemd unit for each agent.</p>
+        <p><b>It registers the host.</b> A <code>Host codex-remote-&lt;name&gt;</code> block
+           goes into your SSH config, which is how the Codex app finds a machine and starts
            <code>codex app-server</code> on it over SSH.</p>
-      </div>
-    </div>
-    <div class="stage">
-      <div class="k">04</div>
-      <div>
-        <h3>Connect</h3>
-        <p>Codex picks it up under Connections. Claude&nbsp;Code dials out and appears in
-           your account. Pair it once and the box answers from your phone too.</p>
+        <p><b>It connects.</b> Codex picks it up under Connections; Claude&nbsp;Code dials
+           out and appears in your account. Pair it once and the box answers from your phone
+           too.</p>
       </div>
     </div>
   </div>
 </section>
 
-<section class="wrap section" id="install">
-  <div class="lead">
-    <div class="eyebrow">Install</div>
-    <h2>Bring your own cloud.</h2>
-    <p>
-      Hetzner, AWS, DigitalOcean, Linode, Vultr or Scaleway. You pay them directly —
-      there is no service in the middle, and no account to make here.
-    </p>
-  </div>
+<section class="sheet leaf" id="s4">
+  <div class="sec">
+    <div class="no">4</div>
+    <div>
+      <h2>Letting an agent do it</h2>
+      <p class="lede">
+        The agent usually knows what it needs better than you do while you are picking from
+        a dropdown. Connect it and it can read your machines; allow more and it can build
+        them.
+      </p>
 
-  <div class="install">
-    <div class="way">
-      <h3>Homebrew</h3>
-      <p>Keeps up to date with <code class="m">brew upgrade</code>.</p>
-      <div class="term">
-        <span class="p">$</span>
-        <code id="c-brew">brew install --cask pandelisz/tap/codex-remote</code>
-        <button data-copy="#c-brew">copy</button>
+      <div class="cmd" style="max-width:64ch">
+        <span class="sigil">$</span>
+        <code id="c-mcp">claude mcp add codex-remote -- codex-remote mcp serve</code>
+        <button class="copy" data-copy="#c-mcp">Copy</button>
       </div>
-      <ul>
-        <li>macOS 15 (Sequoia) or later</li>
-        <li>Apple silicon or Intel</li>
-      </ul>
-    </div>
 
-    <div class="way">
-      <h3>Direct download</h3>
-      <p>Ad-hoc signed, not notarised. macOS calls a downloaded copy &ldquo;damaged&rdquo; until the
-         quarantine flag is removed — Homebrew does that for you.</p>
-      <div class="actions" style="display:flex;gap:10px;flex-wrap:wrap">
-        <a class="btn btn-solid" href="https://github.com/PandelisZ/codex-remote/releases/latest">Latest release</a>
+      <table class="tbl">
+        <caption>Table 1. What an agent may do, and what you have to allow first.</caption>
+        <thead>
+          <tr><th scope="col">Tool</th><th scope="col">Needs</th><th scope="col">Does</th></tr>
+        </thead>
+        <tbody>
+          <tr><td class="k">list_machines</td><td class="req">&mdash;</td><td>Health, running sessions, CPU and memory</td></tr>
+          <tr><td class="k">list_sizes</td><td class="req">&mdash;</td><td>Regions, sizes and images, with prices</td></tr>
+          <tr><td class="k">run_command</td><td class="req">Changes</td><td>Any shell command, as root</td></tr>
+          <tr><td class="k">sync_project</td><td class="req">Changes</td><td>Put a local project on a machine</td></tr>
+          <tr><td class="k">create_machine</td><td class="req">Changes</td><td>Bills to your cloud account</td></tr>
+          <tr><td class="k">destroy_machine</td><td class="req">Destroy</td><td>Cannot be undone</td></tr>
+        </tbody>
+      </table>
+
+      <div class="caution">
+        <div class="label">Why three levels</div>
+        <p>
+          These tools spend money, and an agent calls things in loops. Reading is always
+          available. Changing is off until you turn it on. Destroying has its own switch,
+          because creating the wrong machine costs pence and deleting the right one loses
+          work &mdash; and <code>destroy_machine</code> needs the machine&rsquo;s name
+          twice, so a name a model produced but never verified fails instead of deleting
+          something real.
+        </p>
       </div>
-      <ul>
-        <li>Unzip, drag to Applications</li>
-        <li><code>xattr -dr com.apple.quarantine /Applications/CodexRemote.app</code></li>
-        <li>Lives in the menu bar, not the Dock</li>
-      </ul>
     </div>
   </div>
+</section>
 
-  <div style="margin-top:20px">
-    <div class="term">
-      <span class="p">$</span>
-      <code id="c-cli">codex-remote create --account hetzner --name my-box</code>
-      <button data-copy="#c-cli">copy</button>
+<section class="sheet leaf" id="s5">
+  <div class="sec">
+    <div class="no">5</div>
+    <div>
+      <h2>Adding a cloud doesn&rsquo;t need a release</h2>
+      <div class="body">
+        <p>
+          A cloud is already data: some OpenTofu HCL, the environment its credentials map
+          onto, and the lists that fill the New machine form. So the catalogue is a JSON
+          file fetched at runtime from
+          <a href="https://codexremote.io/registry.json">codexremote.io/registry.json</a>,
+          and adding a provider is a pull request rather than a release.
+        </p>
+        <p>
+          Point the app at your own registry, under Settings &rarr; Providers, and you get
+          your own catalogue: a homelab module, a provider nobody has added yet, or a fork
+          with the packages and volumes your team wants baked in.
+        </p>
+        <p>
+          HCL can live in its own <code>.tf</code> file, pinned to a SHA-256. That hash is
+          the point: this HCL runs against your cloud credentials, and without it whoever
+          serves that URL &mdash; or takes the domain over in two years &mdash; could change
+          what gets applied long after the registry was read.
+        </p>
+      </div>
     </div>
-    <p style="font-family:var(--mono);font-size:12.5px;color:var(--ink-mute);margin:11px 0 0">
-      The CLI ships inside the app. Everything the menu bar does is scriptable, and the reverse.
-    </p>
-  </div>
-
-  <div class="notice">
-    <b>Not affiliated with OpenAI.</b>
-    Codex Remote is an independent, open-source project. It is not made, endorsed,
-    sponsored or supported by OpenAI or by Anthropic. “Codex”, “ChatGPT”, “Claude” and
-    “Claude Code” are trademarks of their respective owners, used here only to describe
-    what this tool works with. You bring your own accounts and your own cloud provider,
-    and your credentials stay on your Mac and on the machines you create.
   </div>
 </section>
 
 </main>
 
-<footer>
-  <div class="wrap foot">
-    <span>Codex Remote · MIT</span>
-    <nav>
-      <a href="https://github.com/PandelisZ/codex-remote">GitHub</a>
-      <a href="https://github.com/PandelisZ/codex-remote/blob/main/docs/agents.md">Docs</a>
-      <a href="https://github.com/PandelisZ/codex-remote/issues">Issues</a>
-      <a href="https://github.com/PandelisZ/codex-remote/releases">Releases</a>
-    </nav>
+<footer class="colophon">
+  <div class="sheet grid">
+    <div>
+      <h2>Not affiliated with OpenAI</h2>
+      <p>
+        Codex Remote is an independent, open-source project. It is not made, endorsed,
+        sponsored or supported by OpenAI or by Anthropic. &ldquo;Codex&rdquo;,
+        &ldquo;ChatGPT&rdquo;, &ldquo;Claude&rdquo; and &ldquo;Claude Code&rdquo; are
+        trademarks of their respective owners, used here only to describe what this tool
+        works with.
+      </p>
+      <p>
+        You bring your own cloud account and pay the provider directly. There is no service
+        in the middle, and your credentials stay on your Mac and on the machines you create.
+      </p>
+      <div class="links">
+        <a href="https://github.com/PandelisZ/codex-remote">GitHub</a>
+        <a href="https://github.com/PandelisZ/codex-remote/releases">Releases</a>
+        <a href="https://github.com/PandelisZ/codex-remote/blob/main/docs/agents.md">Documentation</a>
+        <a href="https://github.com/PandelisZ/codex-remote/issues">Issues</a>
+      </div>
+    </div>
+    <div class="stamp">
+      CODEX REMOTE<br>
+      OPERATOR&rsquo;S GUIDE<br>
+      VERSION 0.2.0<br>
+      MIT LICENCE<br>
+      CODEXREMOTE.IO
+    </div>
   </div>
 </footer>
 
@@ -572,20 +554,23 @@ for (const button of document.querySelectorAll('[data-copy]')) {
   button.addEventListener('click', async () => {
     const target = document.querySelector(button.dataset.copy);
     const restore = button.textContent;
-    const say = (text) => { button.textContent = text; setTimeout(() => { button.textContent = restore; }, 1400); };
+    const say = (text) => {
+      button.textContent = text;
+      setTimeout(() => { button.textContent = restore; }, 1500);
+    };
     try {
       await navigator.clipboard.writeText(target.textContent);
-      say('copied');
+      say('Copied');
     } catch {
-      // Clipboard access gets refused often enough (insecure context, permissions
-      // policy) that silently doing nothing would be the worst outcome. Select it
-      // instead, so there is still one gesture left to take the command.
+      // Clipboard access is refused often enough - insecure context, permissions policy -
+      // that doing nothing visible would be the worst outcome. Select it instead, so there
+      // is still one gesture left that takes the command.
       const range = document.createRange();
       range.selectNodeContents(target);
       const selection = getSelection();
       selection.removeAllRanges();
       selection.addRange(range);
-      say('selected');
+      say('Selected');
     }
   });
 }
