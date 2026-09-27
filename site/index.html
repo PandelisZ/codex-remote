@@ -511,6 +511,70 @@ figcaption b { font-weight: 600; color: var(--ink); }
           what gets applied long after the registry was read.
         </p>
       </div>
+
+      <h3 style="margin-top:34px;font-size:19px">Adding one</h3>
+      <p class="lede" style="margin-top:10px">
+        No Swift, and no waiting for a release. Start from the registry that ships:
+      </p>
+
+      <div class="cmd" style="max-width:52ch">
+        <span class="sigil">$</span>
+        <code id="c-reg">curl -O https://codexremote.io/registry.json</code>
+        <button class="copy" data-copy="#c-reg">Copy</button>
+      </div>
+
+      <ol class="proc" style="max-width:68ch">
+        <li>
+          <div>
+            <div class="what">Write the entry</div>
+            <div class="note">
+              An <code>id</code>, the OpenTofu provider at a <em>pinned</em> version, the
+              credentials to ask for and the environment they map onto, the HCL for one
+              machine, and fallback lists of regions, sizes and images.
+            </div>
+          </div>
+        </li>
+        <li>
+          <div>
+            <div class="what">Give the HCL the outputs it owes</div>
+            <div class="note">
+              It is handed <code>name</code>, <code>region</code>, <code>size</code>,
+              <code>image</code>, <code>ssh_public_key</code>, <code>ssh_key_ids</code>,
+              <code>user_data</code> and <code>tags</code>, and must declare at least
+              <code>instance_id</code> and <code>public_ipv4</code> — without those a
+              machine comes up with no way to reach it.
+            </div>
+          </div>
+        </li>
+        <li>
+          <div>
+            <div class="what">Check it before anyone else has to</div>
+            <div class="note">
+              <code>swift test --filter ProviderRegistryDocumentTests</code> validates the
+              shipped registry, so a malformed entry fails on your machine rather than in
+              review.
+            </div>
+          </div>
+        </li>
+        <li>
+          <div>
+            <div class="what">Host it, or send it</div>
+            <div class="note">
+              Point Settings &rarr; Providers at your own copy and it is yours alone — right
+              for a homelab or an internal cloud. Or open a pull request against
+              <a href="https://github.com/PandelisZ/codex-remote/blob/main/site/registry.json">site/registry.json</a>
+              and every install picks it up on its next refresh, no update needed.
+            </div>
+          </div>
+        </li>
+      </ol>
+
+      <p class="lede" style="margin-top:22px">
+        Full format, the HCL contract and what the loader refuses:
+        <a href="https://github.com/PandelisZ/codex-remote/blob/main/docs/registry.md">docs/registry.md</a>
+        &middot;
+        <a href="https://github.com/PandelisZ/codex-remote/blob/main/CONTRIBUTING.md">CONTRIBUTING.md</a>
+      </p>
     </div>
   </div>
 </section>

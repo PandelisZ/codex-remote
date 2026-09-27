@@ -60,6 +60,7 @@ func usage() -> String {
                                          provider's real schema. Creates nothing.
 
     CLAUDE CODE
+      projects                           Projects Codex and Claude Code already know about
       push <name> [path] [--clone|--copy] [--forward-agent|--gh-token]
                                          Put a local project on the machine. Clones when the
                                          work is pushed, copies when it is not, and sends the
@@ -782,14 +783,53 @@ case "codex-pair":
         fail(error.localizedDescription)
     }
 
+case "projects":
+    let found = ProjectDiscovery.discover()
+    if found.isEmpty {
+        print("No projects found in Codex or Claude Code yet.")
+    } else {
+        print("Projects you already work on:\n")
+        let stamp = DateFormatter()
+        stamp.dateStyle = .medium
+        stamp.timeStyle = .none
+        for project in found {
+            let when = project.lastUsed.map { stamp.string(from: $0) } ?? "—"
+            print("  \(project.name.padding(toLength: max(22, project.name.count + 1), withPad: " ", startingAt: 0))\(when.padding(toLength: 16, withPad: " ", startingAt: 0))\(project.sourceLabel)")
+            print("    \(project.path)")
+        }
+        print("\nSend one with: codex-remote push <machine> <path>")
+    }
+
 case "push":
     guard args.positional.count >= 1 else {
         fail("usage: codex-remote push <machine> [path] [--clone|--copy] [--forward-agent|--gh-token]")
     }
     let machine = findMachine(args.positional[0])
-    let path = args.positional.count >= 2
-        ? args.positional[1]
-        : FileManager.default.currentDirectoryPath
+    let path: String
+    if args.positional.count >= 2 {
+        path = args.positional[1]
+    } else {
+        // No path given. The current directory is only the right guess when it is itself
+        // a project; otherwise offer what Codex and Claude Code already know about.
+        let cwd = FileManager.default.currentDirectoryPath
+        let found = ProjectDiscovery.discover(limit: 12)
+        if found.contains(where: { $0.path == cwd }) || found.isEmpty {
+            path = cwd
+        } else {
+            print("Which project?\n")
+            for (index, project) in found.enumerated() {
+                print("  \(index + 1). \(project.name)  —  \(project.path)")
+            }
+            print("  0. this directory  —  \(cwd)\n")
+            prompt("number > ")
+            guard let answer = readLine(strippingNewline: true), let choice = Int(answer) else {
+                fail("nothing picked.")
+            }
+            if choice == 0 { path = cwd }
+            else if choice >= 1 && choice <= found.count { path = found[choice - 1].path }
+            else { fail("there is no \(choice) in that list.") }
+        }
+    }
     do {
         let project = await ProjectSync.inspect(path: path)
         let method: ProjectSync.Method? = args.bool("clone") ? .clone
