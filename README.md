@@ -1,6 +1,6 @@
 # Codex Remote
 
-A macOS menu bar app that brings remote machines online for Codex.
+As simple as it gets to put Claude or Codex on a remote machine.
 
 ```bash
 brew install --cask pandelisz/tap/codex-remote
@@ -64,19 +64,7 @@ Point Codex Remote at your own registry for your own providers, including a home
 OpenTofu ships inside the app — there is nothing to install — and it is why the provider
 list is a list of data files rather than a list of hand-written API clients.
 
-```
-┌──────────────────────────────────────────┐
-│ ▤ Codex Remote                        ⟳  │
-│   3 of 3 online                          │
-├──────────────────────────────────────────┤
-│ ● demo-box    existing-host    [Open] ⌄  │
-│   Online · ssh codex-remote-demo-box     │
-│ ● codex-eu    hetzner     (on) [Open] ⌄  │
-│   Online · ssh codex-remote-codex-eu     │
-├──────────────────────────────────────────┤
-│ ⊕ New machine            ▤   ⚙   ⏻       │
-└──────────────────────────────────────────┘
-```
+![The Codex Remote menu bar panel: one machine named demo on Hetzner, showing a blue idle indicator and the line "idle · CPU 0% · RAM 0.5/7.6 GB", with an Open button and a New machine button.](site/img/panel.png)
 
 ## What happens when you add a machine
 

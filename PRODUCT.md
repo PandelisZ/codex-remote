@@ -1,5 +1,9 @@
 # Codex Remote
 
+## Tagline
+
+As simple as it gets to put Claude or Codex on a remote machine.
+
 ## What it is
 
 A macOS menu bar app that provisions a cloud server and wires it up as a remote coding
