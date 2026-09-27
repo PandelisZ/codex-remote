@@ -183,8 +183,20 @@ code { font-family: var(--mono); font-variant-ligatures: none; }
 }
 .copy:hover { color: var(--cover-ink); background: var(--cover); border-color: var(--cover); }
 
+/* The download route, for anyone not using Homebrew. Set as a manual's own control:
+   ruled, not a pill, so it belongs to the page rather than to a marketing template. */
+.dl {
+  display: inline-block; text-decoration: none;
+  font-family: var(--display); font-size: 14px; font-weight: 500;
+  color: var(--cover-ink); background: var(--cover);
+  border: 1px solid var(--cover); padding: 9px 16px;
+}
+.dl:hover { filter: brightness(1.12); }
+
 figure { margin: 0; }
-figure img { display: block; width: 100%; height: auto; border: 1px solid var(--rule); background: var(--stock-2); }
+/* No border or fill: the capture is a transparent PNG of a window that already has its
+   own rounded chrome, so a square frame cuts across its corners. */
+figure img { display: block; width: 100%; height: auto; }
 figcaption {
   font-family: var(--display); font-size: 13.5px; color: var(--ink-2);
   margin-top: 11px; padding-top: 9px; border-top: 1px solid var(--rule-2);
@@ -294,6 +306,20 @@ figcaption b { font-weight: 600; color: var(--ink); }
               <span class="sigil">$</span>
               <code id="c-brew">brew install --cask pandelisz/tap/codex-remote</code>
               <button class="copy" data-copy="#c-brew">Copy</button>
+            </div>
+          </div>
+        </li>
+        <li>
+          <div>
+            <div class="what">Or download it</div>
+            <div class="note" style="margin-top:7px">
+              <a class="dl" href="https://github.com/PandelisZ/codex-remote/releases/latest/download/CodexRemote-0.2.0.zip">
+                Download Codex Remote 0.2.0
+              </a>
+              <span style="display:block;margin-top:7px">
+                Unzip, drag to Applications, then clear the quarantine flag as below. The app
+                keeps itself up to date after that.
+              </span>
             </div>
           </div>
         </li>

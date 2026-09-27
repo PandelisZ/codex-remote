@@ -32,6 +32,10 @@ struct MenuBarView: View {
                 machineList
             }
 
+            if case .available(let release) = state.updateOutcome {
+                UpdateNotice(release: release).environmentObject(state)
+            }
+
             if let banner = state.banner {
                 BannerView(banner: banner) { state.banner = nil }
             }
@@ -288,5 +292,55 @@ struct BannerView: View {
         .padding(.horizontal, Theme.Space.roomy)
         .padding(.vertical, Theme.Space.normal)
         .background(tint.opacity(0.08))
+    }
+}
+
+
+/// A new build is out. Shown in the panel rather than as a notification: it is worth
+/// knowing, not worth interrupting anything for.
+struct UpdateNotice: View {
+    @EnvironmentObject private var state: AppState
+    let release: UpdateChecker.Release
+
+    var body: some View {
+        HStack(spacing: Theme.Space.snug) {
+            Image(systemName: "arrow.down.circle")
+                .foregroundStyle(.tint)
+                .accessibilityHidden(true)
+
+            VStack(alignment: .leading, spacing: Theme.Space.hairline) {
+                Text("Version \(release.version) is available")
+                    .font(.caption.weight(.medium))
+                if let progress = state.updateProgress {
+                    Text(progressLabel(progress))
+                        .font(.caption2).foregroundStyle(.secondary)
+                } else if let notes = release.notes, !notes.isEmpty {
+                    Text(notes)
+                        .font(.caption2).foregroundStyle(.secondary)
+                        .lineLimit(2).fixedSize(horizontal: false, vertical: true)
+                }
+            }
+
+            Spacer(minLength: Theme.Space.tight)
+
+            if state.updateProgress != nil {
+                ProgressView().controlSize(.small)
+            } else {
+                Button("Update") { state.installUpdate(release) }
+                    .controlSize(.small)
+            }
+        }
+        .padding(.horizontal, Theme.Space.roomy)
+        .padding(.vertical, Theme.Space.normal)
+        .background(Color.accentColor.opacity(0.08))
+    }
+
+    private func progressLabel(_ progress: Updater.Progress) -> String {
+        switch progress {
+        case .downloading: return "Downloading…"
+        case .verifying: return "Checking the download…"
+        case .installing: return "Installing…"
+        case .relaunching: return "Restarting…"
+        }
     }
 }

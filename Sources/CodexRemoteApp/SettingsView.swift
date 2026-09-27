@@ -273,6 +273,66 @@ struct GeneralSettings: View {
             }
 
             Section {
+                LabeledContent("Version") {
+                    Text(CodexRemoteVersion.current).monospacedDigit()
+                }
+
+                switch state.updateOutcome {
+                case .available(let release):
+                    LabeledContent("Available") {
+                        Text("\(release.version)").monospacedDigit()
+                    }
+                    if let progress = state.updateProgress {
+                        HStack(spacing: Theme.Space.snug) {
+                            ProgressView().controlSize(.small)
+                            Text(label(for: progress)).foregroundStyle(.secondary)
+                        }
+                    } else {
+                        HStack {
+                            Button("Update and restart") { state.installUpdate(release) }
+                                .buttonStyle(.borderedProminent)
+                            Spacer()
+                        }
+                    }
+
+                case .managedByHomebrew(let release):
+                    // Replacing the bundle here would leave brew's records pointing at a
+                    // version that is no longer installed.
+                    LabeledContent("Available") {
+                        Text("\(release.version) — installed by Homebrew").monospacedDigit()
+                    }
+                    HStack {
+                        Button("Copy upgrade command") {
+                            NSPasteboard.general.clearContents()
+                            NSPasteboard.general.setString(UpdateChecker.homebrewUpgradeCommand, forType: .string)
+                            state.banner = AppState.Banner(kind: .info, message: "Copied. Run it in a terminal.")
+                        }
+                        Spacer()
+                    }
+
+                default:
+                    HStack {
+                        Button("Check for updates") { state.checkForUpdate() }
+                            .disabled(state.isCheckingForUpdate)
+                        if state.isCheckingForUpdate { ProgressView().controlSize(.small) }
+                        Spacer()
+                    }
+                }
+
+                if let problem = state.updateError {
+                    Label(problem, systemImage: "exclamationmark.triangle.fill")
+                        .foregroundStyle(.red).font(.caption)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            } header: {
+                Text("Updates")
+            } footer: {
+                Text("Checked against codexremote.io/latest.json, and the download is verified against the SHA-256 published there. This build is not notarised, so that checksum — not Apple — is what you are trusting.")
+                    .font(.caption).foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Section {
                 Toggle("Let agents manage machines", isOn: Binding(
                     get: { state.settings.mcpAllowWrites },
                     set: { value in state.updateSettings { $0.mcpAllowWrites = value } }))
@@ -410,6 +470,15 @@ struct GeneralSettings: View {
 /// A registry supplies OpenTofu HCL that runs against the credentials you gave it, so
 /// switching to a new one is a deliberate act: the URL is checked and summarised before it
 /// is saved, and nothing changes until you accept what came back.
+private func label(for progress: Updater.Progress) -> String {
+    switch progress {
+    case .downloading: return "Downloading…"
+    case .verifying: return "Checking the download…"
+    case .installing: return "Installing…"
+    case .relaunching: return "Restarting…"
+    }
+}
+
 struct RegistrySection: View {
     @EnvironmentObject private var state: AppState
 

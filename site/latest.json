@@ -1,0 +1,8 @@
+{
+  "version": "0.2.0",
+  "url": "https://github.com/PandelisZ/codex-remote/releases/download/v0.2.0/CodexRemote-0.2.0.zip",
+  "sha256": "656c55a3f9e2525f404b13272153c632ed50dc30a5e3769a42fcaae8686e544c",
+  "notes": "Project sync, an MCP server, and the provider registry.",
+  "publishedAt": "2026-09-27T21:50:00Z",
+  "minimumSystemVersion": "15.0"
+}

@@ -1,4 +1,5 @@
 import XCTest
+import CryptoKit
 @testable import CodexRemoteKit
 
 final class ManagedBlockTests: XCTestCase {
@@ -301,5 +302,70 @@ final class MCPPermissionTests: XCTestCase {
         let destroy = MCPServer.tools().first { $0.name == "destroy_machine" }
         let schema = destroy?.schema["required"] as? [String] ?? []
         XCTAssertTrue(schema.contains("confirm"))
+    }
+}
+
+/// Updating an app that replaces itself. The failure modes are quiet and expensive: a
+/// downgrade, a tampered download, or a bundle swapped out from under Homebrew.
+final class UpdateCheckerTests: XCTestCase {
+    func testNewerVersionsAreRecognised() {
+        XCTAssertTrue(UpdateChecker.isNewer("0.3.0", than: "0.2.0"))
+        XCTAssertTrue(UpdateChecker.isNewer("1.0.0", than: "0.9.9"))
+        XCTAssertTrue(UpdateChecker.isNewer("0.2.1", than: "0.2.0"))
+        XCTAssertTrue(UpdateChecker.isNewer("v0.3.0", than: "0.2.0"), "tags carry a v")
+    }
+
+    /// The same version must never offer itself, or the app nags forever.
+    func testTheSameVersionIsNotAnUpdate() {
+        XCTAssertFalse(UpdateChecker.isNewer("0.2.0", than: "0.2.0"))
+        XCTAssertFalse(UpdateChecker.isNewer("v0.2.0", than: "0.2.0"))
+    }
+
+    /// A feed that has rolled back must not push users backwards.
+    func testAnOlderVersionIsNeverOffered() {
+        XCTAssertFalse(UpdateChecker.isNewer("0.1.9", than: "0.2.0"))
+        XCTAssertFalse(UpdateChecker.isNewer("0.2.0", than: "1.0.0"))
+    }
+
+    /// Shorter and longer version strings compare by position, not by length.
+    func testVersionsOfDifferentLengthsCompareByComponent() {
+        XCTAssertTrue(UpdateChecker.isNewer("0.2.1", than: "0.2"))
+        XCTAssertFalse(UpdateChecker.isNewer("0.2", than: "0.2.0"))
+        XCTAssertTrue(UpdateChecker.isNewer("0.10.0", than: "0.9.0"), "10 beats 9, not '1' vs '9'")
+    }
+
+    /// The brew command has to be the real one or the advice is worse than none.
+    func testTheHomebrewAdviceNamesTheActualTap() {
+        XCTAssertEqual(UpdateChecker.homebrewUpgradeCommand,
+                       "brew upgrade --cask pandelisz/tap/codex-remote")
+    }
+}
+
+final class UpdaterHashTests: XCTestCase {
+    /// The checksum is the only thing standing between an unsigned download and whatever
+    /// the network served, so it is computed over the real file rather than trusted.
+    func testTheHashIsComputedOverTheFileContents() throws {
+        let file = FileManager.default.temporaryDirectory
+            .appendingPathComponent("codex-remote-hash-\(UUID().uuidString)")
+        try Data("codex remote".utf8).write(to: file)
+        defer { try? FileManager.default.removeItem(at: file) }
+
+        // Independently verifiable: `printf 'codex remote' | shasum -a 256`.
+        XCTAssertEqual(try Updater.sha256(of: file),
+                       "08ff438edf690b1ed2301a7eae4d82e6745b9f04cb5150433cfa30327d5cc075")
+    }
+
+    /// Streaming must give the same answer as hashing in one go, including across the
+    /// 1 MiB chunk boundary.
+    func testStreamingMatchesForFilesLargerThanOneChunk() throws {
+        let file = FileManager.default.temporaryDirectory
+            .appendingPathComponent("codex-remote-big-\(UUID().uuidString)")
+        try Data(repeating: 0x61, count: (1 << 20) + 1234).write(to: file)
+        defer { try? FileManager.default.removeItem(at: file) }
+
+        let streamed = try Updater.sha256(of: file)
+        let whole = SHA256.hash(data: try Data(contentsOf: file))
+            .map { String(format: "%02x", $0) }.joined()
+        XCTAssertEqual(streamed, whole)
     }
 }

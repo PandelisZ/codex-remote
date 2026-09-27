@@ -139,6 +139,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let showInDock = ProcessInfo.processInfo.environment["CODEX_REMOTE_SHOW_IN_DOCK"] == "1"
         NSApp.setActivationPolicy(showInDock ? .regular : .accessory)
         Log.shared.info("app", "Codex Remote started.")
+
+        // Quietly: a laptop opened on a plane should not greet its owner with a failed
+        // network call. Errors only surface when the check was asked for.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+            AppState.shared?.checkForUpdate(quietly: true)
+        }
         if showInDock {
             // Give the scene graph a moment to register the window before asking for it.
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {

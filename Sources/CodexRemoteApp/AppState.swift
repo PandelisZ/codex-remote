@@ -23,6 +23,14 @@ final class AppState: ObservableObject {
     @Published var codexPairingTarget: Machine?
     /// Bumped on each copy so the button can acknowledge it.
     @Published var setupPromptCopiedAt = Date.distantPast
+    /// Set once at init so the app delegate — which is created before the scene's
+    /// StateObject is reachable — can trigger the launch check.
+    static weak var shared: AppState?
+
+    @Published var updateOutcome: UpdateChecker.Outcome?
+    @Published var updateProgress: Updater.Progress?
+    @Published var updateError: String?
+    @Published var isCheckingForUpdate = false
 
     struct Banner: Identifiable, Equatable {
         enum Kind: Equatable { case info, warning, error }
@@ -36,6 +44,7 @@ final class AppState: ObservableObject {
     private var logToken: UUID?
 
     init() {
+        AppState.shared = self
         refresh()
         observerToken = manager.observe { [weak self] event in
             Task { @MainActor in self?.handle(event) }
@@ -269,6 +278,39 @@ final class AppState: ObservableObject {
                 banner = Banner(kind: .info, message: "\(project.name) is at \(destination) on \(machine.name).")
             } catch {
                 banner = Banner(kind: .error, message: error.localizedDescription)
+            }
+        }
+    }
+
+    /// `quietly` is the launch check: it reports an update but never an error, because a
+    /// laptop that opened on a plane should not greet you with a failed network call.
+    func checkForUpdate(quietly: Bool = false) {
+        guard !isCheckingForUpdate else { return }
+        isCheckingForUpdate = true
+        if !quietly { updateError = nil }
+        Task {
+            do {
+                updateOutcome = try await UpdateChecker.check()
+                if case .upToDate = updateOutcome, !quietly {
+                    banner = Banner(kind: .info, message: "Codex Remote \(CodexRemoteVersion.current) is the latest version.")
+                }
+            } catch {
+                if !quietly { updateError = error.localizedDescription }
+            }
+            isCheckingForUpdate = false
+        }
+    }
+
+    func installUpdate(_ release: UpdateChecker.Release) {
+        updateError = nil
+        Task {
+            do {
+                try await Updater.install(release) { progress in
+                    Task { @MainActor in self.updateProgress = progress }
+                }
+            } catch {
+                updateProgress = nil
+                updateError = error.localizedDescription
             }
         }
     }
