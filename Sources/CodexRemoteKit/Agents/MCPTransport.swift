@@ -10,7 +10,7 @@ public struct MCPTransport {
     private let name: String
     private let version: String
 
-    public init(server: MCPServer, name: String = "codex-remote", version: String = "0.1.0") {
+    public init(server: MCPServer, name: String = "codex-remote", version: String = CodexRemoteVersion.current) {
         self.server = server
         self.name = name
         self.version = version

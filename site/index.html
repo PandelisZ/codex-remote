@@ -299,7 +299,7 @@ footer { border-top: 1px solid var(--line); padding-block: 30px 48px; }
     <a class="brand" href="#top"><span class="led"></span> Codex Remote</a>
     <nav>
       <a class="opt" href="#chores">Why</a>
-      <a class="opt" href="#demo">Demo</a>
+      <a class="opt" href="#demo">More</a>
       <a href="#install">Install</a>
       <a href="https://github.com/PandelisZ/codex-remote">GitHub</a>
     </nav>
@@ -408,20 +408,44 @@ footer { border-top: 1px solid var(--line); padding-block: 30px 48px; }
 
 <section class="wrap section" id="demo">
   <div class="lead">
-    <div class="eyebrow">Demo</div>
-    <h2>New machine, to a working agent.</h2>
-    <p>Recorded start to finish — no cuts, no sped-up middle.</p>
+    <div class="eyebrow">Three more things</div>
+    <h2>The parts that usually get left out.</h2>
   </div>
 
-  <figure class="screen" style="margin-block:34px 0">
-    <div class="screen-bar"><i></i><i></i><i></i><span>codex-remote — demo</span></div>
-    <!-- DEMO SLOT: swap demo.mp4 / demo-poster.png, keep the attributes. -->
-    <video src="demo.mp4" poster="demo-poster.png" controls playsinline muted loop preload="metadata"
-           aria-label="Screen recording: creating a machine in Codex Remote, then using it from Codex.">
-      Your browser can’t play this video — <a href="demo.mp4">download it</a>.
-    </video>
-    <figcaption>Provision → bootstrap → the machine appears in Codex.</figcaption>
-  </figure>
+  <div class="stages" style="margin-top:34px">
+    <div class="stage">
+      <div class="k">Project</div>
+      <div>
+        <h3><code>codex-remote push my-box</code></h3>
+        <p>Clones when your work is pushed, copies when it isn’t — a dirty tree stops being
+           cloneable rather than quietly arriving as last week’s code. Sends the untracked
+           <code>.env</code> files a clone cannot carry, which is why a clone alone always
+           leaves you with a project that doesn’t run. Skips <code>node_modules</code>
+           instead of shipping macOS native modules to Linux.</p>
+      </div>
+    </div>
+    <div class="stage">
+      <div class="k">Agents</div>
+      <div>
+        <h3>An MCP server, so the agent builds its own box</h3>
+        <p>It knows what it needs better than you do while you’re picking from a dropdown.
+           Reading is always on; creating and running commands are off by default because
+           they bill to your cloud account; destroying has its own switch, because creating
+           the wrong machine costs pence and deleting the right one loses work.</p>
+      </div>
+    </div>
+    <div class="stage">
+      <div class="k">Clouds</div>
+      <div>
+        <h3>A registry, not a release</h3>
+        <p>A cloud is just OpenTofu HCL plus the environment its credentials map onto, so
+           the catalogue is a JSON file fetched at runtime. Add a provider by opening a pull
+           request, or point the app at your own registry — your homelab, your baked-in
+           packages. Remote HCL is pinned to a SHA-256, so nobody can change what runs
+           against your credentials after you reviewed it.</p>
+      </div>
+    </div>
+  </div>
 </section>
 
 <section class="wrap section">
