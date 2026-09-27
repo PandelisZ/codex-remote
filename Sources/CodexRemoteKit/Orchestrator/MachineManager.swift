@@ -185,6 +185,15 @@ public final class MachineManager: @unchecked Sendable {
                 changed = true
             }
             if probe.health == .online { machineList[index].lastHealthyAt = Date() }
+            // nil means the sample was skipped this pass, so the last reading stands.
+            if let metrics = probe.metrics, machineList[index].metrics != metrics {
+                machineList[index].metrics = metrics
+                changed = true
+            }
+            if probe.metrics != nil, machineList[index].activeSessions != probe.activeSessions {
+                machineList[index].activeSessions = probe.activeSessions
+                changed = true
+            }
             for status in probe.agentStatuses {
                 let existing = machineList[index].agentStatuses.first { $0.kind == status.kind }
                 if existing != status {

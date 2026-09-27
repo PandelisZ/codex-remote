@@ -126,3 +126,79 @@ final class SSHConfigPlacementTests: XCTestCase {
                        original.drop(while: \.isNewline))
     }
 }
+
+/// The line under a machine's name should say something about the machine. The endpoint it
+/// used to show is the same loopback address every time and tells you nothing.
+final class MachineStatusLineTests: XCTestCase {
+    private func machine(health: ConnectionHealth, metrics: SystemMetrics?) -> Machine {
+        Machine(spec: MachineSpec(name: "box", accountID: UUID(), providerKind: .hetzner,
+                                  region: "nbg1", size: "ccx13", image: "ubuntu-26.04",
+                                  workspacePath: "/srv/workspace", agents: [.codex]),
+                instance: Instance(id: "1", name: "box", state: .running, publicIPv4: "203.0.113.7",
+                                   region: "nbg1", size: "ccx13", providerKind: .hetzner),
+                stage: .ready, health: health, localPort: 14560,
+                sshHostAlias: "codex-remote-box", privateKeyPath: "/tmp/k",
+                metrics: metrics)
+    }
+
+    func testAnOnlineMachineReportsItsOwnLoadRatherThanALoopbackPort() {
+        let sample = SystemMetrics(cpuPercent: 12.4,
+                                   memoryUsedBytes: 1_288_490_188,   // 1.2 GiB
+                                   memoryTotalBytes: 17_179_869_184) // 16 GiB
+        let text = machine(health: .online, metrics: sample).statusText
+        XCTAssertEqual(text, "CPU 12% · RAM 1.2/16 GB")
+        XCTAssertFalse(text.contains("ws://"), "the endpoint is not news")
+    }
+
+    /// Before the first sample lands there is nothing to show; the row must not print an
+    /// empty metrics fragment or a stray separator.
+    func testAMachineWithNoSampleYetStillReadsCleanly() {
+        XCTAssertEqual(machine(health: .online, metrics: nil).statusText, "Ready")
+    }
+
+    /// A machine that is not answering has a real problem to report, and load figures from
+    /// the last time it worked would bury it.
+    func testAnUnreachableMachineReportsTheProblemNotStaleFigures() {
+        let stale = SystemMetrics(cpuPercent: 3, memoryUsedBytes: 1 << 30, memoryTotalBytes: 1 << 34)
+        XCTAssertEqual(machine(health: .offline, metrics: stale).statusText, "Codex offline")
+    }
+
+    /// Memory is shown from MemAvailable, so a box with a large page cache reads as mostly
+    /// free rather than nearly full.
+    func testMemoryIsFormattedForGlancing() {
+        let big = SystemMetrics(cpuPercent: 100, memoryUsedBytes: 12_884_901_888,
+                                memoryTotalBytes: 68_719_476_736)
+        XCTAssertEqual(big.summary, "CPU 100% · RAM 12/64 GB")
+    }
+}
+
+/// The indicator answers one question: can I turn this machine off? Green means someone is
+/// working on it, blue means it is up but idle.
+extension MachineStatusLineTests {
+    private func box(sessions: Int?) -> Machine {
+        Machine(spec: MachineSpec(name: "box", accountID: UUID(), providerKind: .hetzner,
+                                  region: "nbg1", size: "ccx13", image: "ubuntu-26.04",
+                                  workspacePath: "/srv/workspace", agents: [.codex]),
+                instance: Instance(id: "1", name: "box", state: .running, publicIPv4: "203.0.113.7",
+                                   region: "nbg1", size: "ccx13", providerKind: .hetzner),
+                stage: .ready, health: .online, localPort: 14560,
+                sshHostAlias: "codex-remote-box", privateKeyPath: "/tmp/k",
+                metrics: SystemMetrics(cpuPercent: 2, memoryUsedBytes: 1 << 30,
+                                       memoryTotalBytes: 1 << 34),
+                activeSessions: sessions)
+    }
+
+    func testAnIdleMachineSaysSoAndACountedOneSaysHowMany() {
+        XCTAssertTrue(box(sessions: 0).statusText.hasPrefix("idle · "))
+        XCTAssertTrue(box(sessions: 1).statusText.hasPrefix("1 session · "))
+        XCTAssertTrue(box(sessions: 3).statusText.hasPrefix("3 sessions · "))
+    }
+
+    /// An unsampled machine must not read as idle: that would invite stopping a box with
+    /// work on it.
+    func testAnUnsampledMachineNeverClaimsToBeIdle() {
+        let text = box(sessions: nil).statusText
+        XCTAssertFalse(text.contains("idle"), text)
+        XCTAssertFalse(text.contains("session"), text)
+    }
+}

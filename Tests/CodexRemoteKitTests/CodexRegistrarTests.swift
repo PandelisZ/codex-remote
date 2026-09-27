@@ -81,7 +81,12 @@ final class CodexRegistrarTests: XCTestCase {
     func testStatusTextExplainsEachState() {
         var machine = makeMachine()
         machine.spec.agents = [.codex]
-        XCTAssertTrue(machine.statusText.contains("Codex on ws://127.0.0.1:14560"))
+        // A healthy machine reports its own load. It used to print the tunnel endpoint,
+        // which is the same loopback address on every machine and told you nothing.
+        machine.metrics = SystemMetrics(cpuPercent: 7, memoryUsedBytes: 1 << 31,
+                                        memoryTotalBytes: 1 << 34)
+        XCTAssertEqual(machine.statusText, "CPU 7% · RAM 2.0/16 GB")
+        XCTAssertFalse(machine.statusText.contains("ws://"))
 
         machine.health = .degraded
         XCTAssertTrue(machine.statusText.contains("not answering"))
@@ -102,9 +107,16 @@ final class CodexRegistrarTests: XCTestCase {
         machine.health = .online
         machine.agentStatuses = [AgentStatus(kind: .claudeCode, isRunning: true)]
 
+        // Healthy Codex needs no words: the row's indicator already says the machine is
+        // up. Claude is different — it can be installed and signed out on a live machine,
+        // so its state is only visible if the line says so.
         let text = machine.statusText
-        XCTAssertTrue(text.contains("Codex"), text)
-        XCTAssertTrue(text.contains("Claude"), text)
+        XCTAssertTrue(text.contains("Claude in your account"), text)
+        XCTAssertFalse(text.contains("ws://"), text)
+
+        machine.health = .degraded
+        XCTAssertTrue(machine.statusText.contains("Codex not answering"), machine.statusText)
+        machine.health = .online
 
         machine.agentStatuses = [AgentStatus(kind: .claudeCode, isRunning: false)]
         XCTAssertTrue(machine.statusText.contains("Claude not running"))

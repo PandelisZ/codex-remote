@@ -3,444 +3,534 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Codex Remote — cloud machines for Codex and Claude Code</title>
-<meta name="description" content="A macOS menu bar app that provisions a cloud machine and wires it up as a remote Codex or Claude Code agent. Open source. Not affiliated with OpenAI.">
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>▤</text></svg>">
+<title>Codex Remote</title>
+<meta name="description" content="A macOS menu bar app that provisions a cloud machine and wires it up as a remote Codex or Claude Code agent. Open source, not affiliated with OpenAI.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%2314855c'/><circle cx='16' cy='16' r='6' fill='%23fff'/></svg>">
 
 <meta property="og:title" content="Codex Remote">
 <meta property="og:description" content="Give it a provider token. It builds the machine, installs the agent, and the machine shows up where you already work.">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://codexremote.io">
 
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+
 <style>
 :root {
-  color-scheme: light dark;
+  color-scheme: light;
 
-  --bg: #fbfaf8;
-  --surface: #ffffff;
-  --surface-2: #f4f2ee;
-  --text: #1a1916;
-  --text-dim: #5d5a52;
-  --text-faint: #8a867c;
-  --line: #e5e1d9;
-  --accent: #b3421d;
-  --accent-soft: #f6e8e1;
-  --code-bg: #24221e;
-  --code-text: #ece7dd;
-  --ok: #3f7d3f;
+  --paper:    #eceef0;
+  --surface:  #ffffff;
+  --sunk:     #e2e5e8;
+  --ink:      #11161c;
+  --ink-dim:  #4d5763;
+  --ink-mute: #78828d;
+  --line:     #d3d9de;
+  --line-soft:#e2e6ea;
 
-  --radius: 14px;
-  --radius-sm: 9px;
-  --maxw: 1080px;
-  --gutter: 16px;
+  --signal:   #14855c;
+  --signal-bg:#dceee6;
+  --warn:     #9a5b12;
+  --warn-bg:  #f4e7d6;
 
-  --sans: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, system-ui, sans-serif;
-  --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  --term-bg:  #11161c;
+  --term-fg:  #d9e0e6;
+  --term-dim: #6f7c88;
+
+  --sans: "IBM Plex Sans", ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  --measure: 64ch;
+  --maxw: 1100px;
 }
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --bg: #131211;
-    --surface: #1c1b19;
-    --surface-2: #232220;
-    --text: #efece6;
-    --text-dim: #aba69c;
-    --text-faint: #7d7870;
-    --line: #2e2c29;
-    --accent: #e0703f;
-    --accent-soft: #2a201a;
-    --code-bg: #0e0d0c;
-    --code-text: #e6e1d7;
-    --ok: #7bb87b;
+    color-scheme: dark;
+    --paper:    #0e1216;
+    --surface:  #161b21;
+    --sunk:     #1b2128;
+    --ink:      #e6e9ec;
+    --ink-dim:  #a3adb8;
+    --ink-mute: #6f7a86;
+    --line:     #262d35;
+    --line-soft:#1e242b;
+    --signal:   #3fbe89;
+    --signal-bg:#10291f;
+    --warn:     #d09343;
+    --warn-bg:  #2a2015;
+    --term-bg:  #080b0e;
+    --term-fg:  #d9e0e6;
+    --term-dim: #5d6873;
   }
 }
 :root[data-theme="dark"] {
-  --bg: #131211;
-  --surface: #1c1b19;
-  --surface-2: #232220;
-  --text: #efece6;
-  --text-dim: #aba69c;
-  --text-faint: #7d7870;
-  --line: #2e2c29;
-  --accent: #e0703f;
-  --accent-soft: #2a201a;
-  --code-bg: #0e0d0c;
-  --code-text: #e6e1d7;
-  --ok: #7bb87b;
+  color-scheme: dark;
+  --paper:    #0e1216;
+  --surface:  #161b21;
+  --sunk:     #1b2128;
+  --ink:      #e6e9ec;
+  --ink-dim:  #a3adb8;
+  --ink-mute: #6f7a86;
+  --line:     #262d35;
+  --line-soft:#1e242b;
+  --signal:   #3fbe89;
+  --signal-bg:#10291f;
+  --warn:     #d09343;
+  --warn-bg:  #2a2015;
+  --term-bg:  #080b0e;
+  --term-fg:  #d9e0e6;
+  --term-dim: #5d6873;
 }
 
 * { box-sizing: border-box; }
-
 html { -webkit-text-size-adjust: 100%; }
 
 body {
   margin: 0;
-  background: var(--bg);
-  color: var(--text);
+  background: var(--paper);
+  color: var(--ink);
   font-family: var(--sans);
-  font-size: 17px;
+  font-size: 16.5px;
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
   overflow-x: hidden;
 }
 
-.wrap {
-  max-width: var(--maxw);
-  margin: 0 auto;
-  padding: 0 var(--gutter);
+.wrap { max-width: var(--maxw); margin: 0 auto; padding-inline: 20px; }
+
+a { color: var(--ink); text-underline-offset: 3px; text-decoration-color: var(--line); }
+a:hover { text-decoration-color: currentColor; }
+
+h1, h2, h3 { margin: 0; line-height: 1.12; letter-spacing: -0.021em; text-wrap: balance; font-weight: 600; }
+
+:focus-visible { outline: 2px solid var(--signal); outline-offset: 2px; }
+
+/* mono is the machine's voice: hostnames, units, regions, commands */
+.m { font-family: var(--mono); font-variant-ligatures: none; }
+
+.eyebrow {
+  font-family: var(--mono);
+  font-size: 12px; font-weight: 500;
+  letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--ink-mute);
+  display: flex; align-items: center; gap: 12px;
+  margin-bottom: 18px;
 }
+.eyebrow::after { content: ""; flex: 1; height: 1px; background: var(--line); }
 
-a { color: var(--accent); text-decoration-thickness: 1px; text-underline-offset: 2px; }
+/* ---------- masthead ---------- */
 
-h1, h2, h3 { line-height: 1.15; letter-spacing: -0.02em; margin: 0; }
-
-code, kbd { font-family: var(--mono); font-size: 0.9em; }
-
-/* ---------- top bar ---------- */
-
-header {
-  position: sticky; top: 0; z-index: 50;
-  background: color-mix(in srgb, var(--bg) 88%, transparent);
-  backdrop-filter: saturate(160%) blur(12px);
-  border-bottom: 1px solid var(--line);
+header { border-bottom: 1px solid var(--line); background: var(--paper); }
+.masthead { display: flex; align-items: center; gap: 16px; height: 60px; }
+.brand { display: flex; align-items: center; gap: 10px; font-weight: 600; letter-spacing: -0.015em; text-decoration: none; }
+.brand .led {
+  width: 10px; height: 10px; border-radius: 50%;
+  background: var(--signal); flex: none;
+  box-shadow: 0 0 0 3px var(--signal-bg);
 }
-.bar { display: flex; align-items: center; gap: 14px; height: 58px; }
-.brand { display: flex; align-items: center; gap: 9px; font-weight: 640; letter-spacing: -0.02em; }
-.brand .mark {
-  width: 25px; height: 25px; border-radius: 7px;
-  background: var(--accent); color: #fff;
-  display: grid; place-items: center; font-size: 14px; flex: none;
-}
-.bar nav { margin-left: auto; display: flex; align-items: center; gap: 20px; }
-.bar nav a { color: var(--text-dim); text-decoration: none; font-size: 15px; }
-.bar nav a:hover { color: var(--text); }
-@media (max-width: 640px) { .bar nav a.hide-sm { display: none; } }
+.masthead nav { margin-left: auto; display: flex; gap: 22px; align-items: center; }
+.masthead nav a { font-size: 14.5px; color: var(--ink-dim); text-decoration: none; font-family: var(--mono); }
+.masthead nav a:hover { color: var(--ink); }
+@media (max-width: 620px) { .masthead nav a.opt { display: none; } }
 
 /* ---------- buttons ---------- */
 
 .btn {
-  display: inline-flex; align-items: center; gap: 8px;
-  padding: 11px 18px; border-radius: var(--radius-sm);
-  font-size: 15px; font-weight: 560; text-decoration: none;
-  border: 1px solid transparent; cursor: pointer; white-space: nowrap;
+  display: inline-flex; align-items: center; gap: 9px;
+  padding: 11px 17px; border-radius: 3px;
+  font-family: var(--mono); font-size: 14px; font-weight: 500;
+  text-decoration: none; border: 1px solid transparent; cursor: pointer;
 }
-.btn-primary { background: var(--accent); color: #fff; }
-.btn-primary:hover { filter: brightness(1.08); }
-.btn-ghost { background: var(--surface); color: var(--text); border-color: var(--line); }
-.btn-ghost:hover { background: var(--surface-2); }
-.btn-sm { padding: 8px 14px; font-size: 14px; }
+.btn-solid { background: var(--ink); color: var(--paper); }
+.btn-solid:hover { opacity: 0.88; }
+.btn-line { border-color: var(--line); color: var(--ink); background: var(--surface); }
+.btn-line:hover { border-color: var(--ink-mute); }
 
 /* ---------- hero ---------- */
 
-.hero { padding: 76px 0 8px; }
-.eyebrow {
-  display: inline-flex; align-items: center; gap: 7px;
-  font-size: 13px; color: var(--accent); background: var(--accent-soft);
-  border-radius: 999px; padding: 5px 12px; font-weight: 560;
-  margin-bottom: 20px;
-}
-.hero h1 { font-size: clamp(34px, 6.2vw, 58px); font-weight: 680; max-width: 15ch; }
-.hero .lede {
-  font-size: clamp(17px, 2.2vw, 20px); color: var(--text-dim);
-  max-width: 56ch; margin: 20px 0 0;
-}
-.cta { display: flex; flex-wrap: wrap; gap: 11px; align-items: center; margin-top: 30px; }
-.cta .note { font-size: 13.5px; color: var(--text-faint); }
+.hero { padding-block: 64px 44px; display: grid; grid-template-columns: 1.05fr 0.95fr; gap: 56px; align-items: start; }
+@media (max-width: 900px) { .hero { grid-template-columns: 1fr; gap: 36px; padding-block: 44px 32px; } }
 
-/* ---------- pain ---------- */
+.hero h1 { font-size: clamp(33px, 5.2vw, 52px); font-weight: 700; letter-spacing: -0.03em; }
+.hero p { color: var(--ink-dim); font-size: 17.5px; max-width: 46ch; margin: 20px 0 0; }
+.hero .actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 28px; }
+.hero .req { font-family: var(--mono); font-size: 12.5px; color: var(--ink-mute); margin-top: 16px; }
 
-.section { padding: 78px 0; }
-.section-head { max-width: 62ch; margin-bottom: 36px; }
-.section-head h2 { font-size: clamp(26px, 3.6vw, 34px); font-weight: 660; }
-.section-head p { color: var(--text-dim); margin: 13px 0 0; }
+/* ---------- the panel (hero centrepiece) ---------- */
 
-.pain {
-  display: grid; gap: 1px; background: var(--line);
-  border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden;
-  grid-template-columns: 1fr 1fr;
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  overflow: hidden;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.04), 0 12px 32px -18px rgb(0 0 0 / 0.3);
 }
-@media (max-width: 760px) { .pain { grid-template-columns: 1fr; } }
-.pain > div { background: var(--surface); padding: 26px 24px; }
-.pain h3 { font-size: 16px; font-weight: 620; margin-bottom: 9px; display: flex; gap: 9px; align-items: baseline; }
-.pain p { margin: 0; color: var(--text-dim); font-size: 15px; }
-.pain .before h3::before { content: "✗"; color: var(--accent); font-weight: 700; }
-.pain .after h3::before { content: "✓"; color: var(--ok); font-weight: 700; }
+.panel-top {
+  display: flex; align-items: baseline; gap: 10px;
+  padding: 13px 16px; border-bottom: 1px solid var(--line-soft);
+}
+.panel-top b { font-size: 14.5px; font-weight: 600; }
+.panel-top .count { font-family: var(--mono); font-size: 12px; color: var(--ink-mute); margin-left: auto; }
+
+.row { display: grid; grid-template-columns: auto 1fr auto; gap: 12px; align-items: center; padding: 13px 16px; border-bottom: 1px solid var(--line-soft); }
+.row:last-of-type { border-bottom: 0; }
+.row .led { width: 8px; height: 8px; border-radius: 50%; background: var(--signal); }
+.row .led.off { background: var(--ink-mute); }
+.row .name { font-family: var(--mono); font-size: 14px; font-weight: 500; }
+.row .sub { font-family: var(--mono); font-size: 11.5px; color: var(--ink-mute); margin-top: 3px; }
+.row .open { font-family: var(--mono); font-size: 11.5px; color: var(--ink-dim); border: 1px solid var(--line); border-radius: 3px; padding: 3px 9px; }
+
+.panel-foot { padding: 11px 16px; background: var(--sunk); font-family: var(--mono); font-size: 11.5px; color: var(--ink-mute); display: flex; gap: 14px; }
+
+/* ---------- sections ---------- */
+
+.section { padding-block: 66px; border-top: 1px solid var(--line); }
+.section > .lead { max-width: var(--measure); }
+.section h2 { font-size: clamp(24px, 3.2vw, 31px); }
+.section .lead p { color: var(--ink-dim); margin: 14px 0 0; }
+
+/* ---------- the chores table ---------- */
+
+.chores { margin-top: 38px; display: grid; gap: 0; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; background: var(--surface); }
+.chore { display: grid; grid-template-columns: 1fr 1fr; border-bottom: 1px solid var(--line-soft); }
+.chore:last-child { border-bottom: 0; }
+@media (max-width: 760px) { .chore { grid-template-columns: 1fr; } }
+
+.chore > div { padding: 22px 24px; }
+.chore .then { border-right: 1px solid var(--line-soft); background: var(--sunk); }
+@media (max-width: 760px) { .chore .then { border-right: 0; border-bottom: 1px solid var(--line-soft); } }
+
+.tag {
+  font-family: var(--mono); font-size: 10.5px; font-weight: 500;
+  letter-spacing: 0.09em; text-transform: uppercase;
+  display: inline-block; padding: 2px 7px; border-radius: 3px; margin-bottom: 11px;
+}
+.tag.pain { color: var(--warn); background: var(--warn-bg); }
+.tag.fix  { color: var(--signal); background: var(--signal-bg); }
+.chore h3 { font-size: 16px; font-weight: 600; margin-bottom: 8px; }
+.chore p { margin: 0; color: var(--ink-dim); font-size: 15px; }
+.chore code { font-family: var(--mono); font-size: 0.88em; background: var(--paper); padding: 1px 4px; border-radius: 3px; }
 
 /* ---------- demo ---------- */
 
-.demo-frame {
-  border: 1px solid var(--line); border-radius: var(--radius);
-  background: var(--surface); overflow: hidden;
-}
-.demo-frame video, .demo-frame img { display: block; width: 100%; height: auto; }
-.demo-chrome {
-  display: flex; align-items: center; gap: 7px;
-  padding: 11px 14px; border-bottom: 1px solid var(--line); background: var(--surface-2);
-}
-.dot { width: 11px; height: 11px; border-radius: 50%; background: var(--line); }
-.demo-chrome span { margin-left: 8px; font-size: 13px; color: var(--text-faint); font-family: var(--mono); }
-.caption { font-size: 14px; color: var(--text-faint); margin-top: 13px; text-align: center; }
+.screen { margin-top: 34px; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; background: var(--surface); }
+.screen video, .screen img { display: block; width: 100%; max-width: 100%; height: auto; background: var(--term-bg); }
+.screen-bar { display: flex; align-items: center; gap: 8px; padding: 10px 14px; border-bottom: 1px solid var(--line-soft); background: var(--sunk); }
+.screen-bar i { width: 9px; height: 9px; border-radius: 50%; background: var(--line); display: block; }
+.screen-bar span { font-family: var(--mono); font-size: 11.5px; color: var(--ink-mute); margin-left: 6px; }
+.screen figcaption { font-family: var(--mono); font-size: 12px; color: var(--ink-mute); padding: 11px 14px; border-top: 1px solid var(--line-soft); }
 
-/* ---------- steps ---------- */
+/* ---------- stages ---------- */
 
-.steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
-@media (max-width: 860px) { .steps { grid-template-columns: 1fr; } }
-.step {
-  background: var(--surface); border: 1px solid var(--line);
-  border-radius: var(--radius); padding: 24px;
-}
-.step .n {
-  width: 27px; height: 27px; border-radius: 8px; background: var(--accent-soft);
-  color: var(--accent); display: grid; place-items: center;
-  font-size: 14px; font-weight: 680; margin-bottom: 14px;
-}
-.step h3 { font-size: 16.5px; font-weight: 620; margin-bottom: 8px; }
-.step p { margin: 0; color: var(--text-dim); font-size: 15px; }
+.stages { margin-top: 34px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); overflow: hidden; }
+.stage { display: grid; grid-template-columns: 4.5rem 1fr; gap: 20px; padding: 20px 24px; border-bottom: 1px solid var(--line-soft); }
+.stage:last-child { border-bottom: 0; }
+@media (max-width: 620px) { .stage { grid-template-columns: 1fr; gap: 8px; } }
+.stage .k { font-family: var(--mono); font-size: 12px; color: var(--ink-mute); letter-spacing: 0.06em; text-transform: uppercase; padding-top: 3px; }
+.stage h3 { font-size: 16px; margin-bottom: 7px; }
+.stage p { margin: 0; color: var(--ink-dim); font-size: 15px; max-width: 62ch; }
+.stage code { font-family: var(--mono); font-size: 0.88em; }
 
-/* ---------- install ---------- */
+/* ---------- terminal blocks ---------- */
 
-.install { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
-@media (max-width: 760px) { .install { grid-template-columns: 1fr; } }
-.card {
-  background: var(--surface); border: 1px solid var(--line);
-  border-radius: var(--radius); padding: 26px;
-}
-.card h3 { font-size: 17px; font-weight: 620; margin-bottom: 6px; }
-.card > p { color: var(--text-dim); font-size: 14.5px; margin: 0 0 18px; }
-
-.cmd {
-  display: flex; align-items: center; gap: 10px;
-  background: var(--code-bg); color: var(--code-text);
-  border-radius: var(--radius-sm); padding: 13px 14px;
-  font-family: var(--mono); font-size: 13.5px;
+.term {
+  background: var(--term-bg); color: var(--term-fg);
+  border-radius: 5px; padding: 15px 16px;
+  font-family: var(--mono); font-size: 13.5px; line-height: 1.75;
+  display: flex; align-items: flex-start; gap: 11px;
   overflow-x: auto;
 }
-.cmd code { color: inherit; white-space: pre; }
-.cmd .prompt { color: var(--text-faint); user-select: none; flex: none; }
-.copy {
-  margin-left: auto; flex: none; background: transparent; cursor: pointer;
-  border: 1px solid #ffffff2a; color: var(--code-text);
-  border-radius: 7px; padding: 4px 9px; font-size: 12px; font-family: var(--sans);
+.term .p { color: var(--term-dim); user-select: none; flex: none; }
+.term code { white-space: pre; color: inherit; }
+.term button {
+  margin-left: auto; flex: none; background: transparent; color: var(--term-dim);
+  border: 1px solid #ffffff22; border-radius: 3px; cursor: pointer;
+  font-family: var(--mono); font-size: 11.5px; padding: 3px 8px;
 }
-.copy:hover { background: #ffffff14; }
-.reqs { list-style: none; padding: 0; margin: 18px 0 0; font-size: 14px; color: var(--text-faint); }
-.reqs li { padding: 3px 0; }
+.term button:hover { color: var(--term-fg); border-color: #ffffff44; }
+
+.install { margin-top: 34px; display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+@media (max-width: 760px) { .install { grid-template-columns: 1fr; } }
+.way h3 { font-size: 16px; margin-bottom: 6px; }
+.way > p { color: var(--ink-dim); font-size: 14.5px; margin: 0 0 14px; }
+.way ul { list-style: none; padding: 0; margin: 13px 0 0; font-family: var(--mono); font-size: 12.5px; color: var(--ink-mute); }
+.way li { padding: 2px 0; }
+.way li::before { content: "· "; }
 
 /* ---------- disclaimer ---------- */
 
-.disclaimer {
-  border: 1px solid var(--line); border-left: 3px solid var(--accent);
-  background: var(--surface); border-radius: var(--radius-sm);
-  padding: 20px 22px; font-size: 14.5px; color: var(--text-dim);
+.notice {
+  margin-top: 56px; padding: 22px 24px;
+  border: 1px solid var(--line); border-radius: 6px;
+  background: var(--surface);
+  font-size: 15px; color: var(--ink-dim); max-width: var(--measure);
 }
-.disclaimer strong { color: var(--text); }
+.notice b { color: var(--ink); font-weight: 600; }
 
-footer {
-  border-top: 1px solid var(--line); padding: 34px 0 50px;
-  font-size: 14px; color: var(--text-faint);
-}
-.foot { display: flex; flex-wrap: wrap; gap: 16px; align-items: center; }
-.foot nav { margin-left: auto; display: flex; gap: 18px; flex-wrap: wrap; }
-.foot a { color: var(--text-dim); text-decoration: none; }
-.foot a:hover { color: var(--text); }
+footer { border-top: 1px solid var(--line); padding-block: 30px 48px; }
+.foot { display: flex; flex-wrap: wrap; gap: 16px; align-items: center; font-family: var(--mono); font-size: 13px; color: var(--ink-mute); }
+.foot nav { margin-left: auto; display: flex; gap: 20px; flex-wrap: wrap; }
+.foot a { color: var(--ink-dim); text-decoration: none; }
+.foot a:hover { color: var(--ink); }
 
-@media (prefers-reduced-motion: reduce) {
-  * { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
-}
+@media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
 </style>
 </head>
 <body>
 
 <header>
-  <div class="wrap bar">
-    <div class="brand"><span class="mark">▤</span> Codex Remote</div>
+  <div class="wrap masthead">
+    <a class="brand" href="#top"><span class="led"></span> Codex Remote</a>
     <nav>
-      <a href="#why" class="hide-sm">Why</a>
-      <a href="#demo" class="hide-sm">Demo</a>
+      <a class="opt" href="#chores">Why</a>
+      <a class="opt" href="#demo">Demo</a>
       <a href="#install">Install</a>
       <a href="https://github.com/PandelisZ/codex-remote">GitHub</a>
     </nav>
   </div>
 </header>
 
-<main>
+<main id="top">
 
 <section class="wrap hero">
-  <div class="eyebrow">Open source · macOS menu bar app</div>
-  <h1>Your coding agent, on a machine that isn't your laptop.</h1>
-  <p class="lede">
-    Give Codex Remote a cloud provider token. It builds the server, installs Codex and
-    Claude&nbsp;Code, brings your MCP servers along, and the machine turns up where you
-    already work — no SSH config to hand-edit, nothing to keep alive in a terminal.
-  </p>
-  <div class="cta">
-    <a class="btn btn-primary" href="#install">Download for macOS</a>
-    <a class="btn btn-ghost" href="https://github.com/PandelisZ/codex-remote">View source</a>
-    <span class="note">macOS 15+ · Apple silicon &amp; Intel</span>
+  <div>
+    <h1>A machine for your agent, in about four minutes.</h1>
+    <p>
+      Codex Remote is a macOS menu bar app. Give it a token for a cloud you already
+      pay for; it builds the server, installs Codex and Claude&nbsp;Code, carries your
+      MCP servers over, and hands the machine to the tools you already use.
+    </p>
+    <div class="actions">
+      <a class="btn btn-solid" href="#install">Install</a>
+      <a class="btn btn-line" href="https://github.com/PandelisZ/codex-remote">Source</a>
+    </div>
+    <p class="req">macOS 15+ · Apple silicon or Intel · MIT</p>
+  </div>
+
+  <div class="panel" role="img" aria-label="The Codex Remote menu bar panel showing two machines online: codex-eu on Hetzner in nbg1, and claude-box on Hetzner in fsn1.">
+    <div class="panel-top">
+      <b>Codex Remote</b>
+      <span class="count">2 of 2 online</span>
+    </div>
+    <div class="row">
+      <span class="led"></span>
+      <div>
+        <div class="name">codex-eu</div>
+        <div class="sub">hetzner · nbg1 · ccx13 · ssh codex-remote-codex-eu</div>
+      </div>
+      <span class="open">Open</span>
+    </div>
+    <div class="row">
+      <span class="led"></span>
+      <div>
+        <div class="name">claude-box</div>
+        <div class="sub">hetzner · fsn1 · ccx13 · claude.ai/code</div>
+      </div>
+      <span class="open">Open</span>
+    </div>
+    <div class="panel-foot">
+      <span>+ New machine</span>
+      <span style="margin-left:auto">idle shutdown: 30m</span>
+    </div>
   </div>
 </section>
 
-<section class="wrap section" id="why">
-  <div class="section-head">
-    <h2>Renting a box is easy. Making an agent live on it isn't.</h2>
+<section class="wrap section" id="chores">
+  <div class="lead">
+    <div class="eyebrow">The chores</div>
+    <h2>Renting a box takes a minute. Making an agent live on it doesn’t.</h2>
     <p>
-      Every remote-agent setup runs into the same handful of chores. None of them are hard.
-      All of them are fiddly, and you do them again for every machine.
+      None of this is hard. All of it is fiddly, none of it is interesting, and you do
+      every bit of it again for the next machine.
     </p>
   </div>
 
-  <div class="pain">
-    <div class="before">
-      <h3>Hand-edit <code>~/.ssh/config</code></h3>
-      <p>And find out the hard way that an <code>Include</code> doesn't count — Codex parses
-         that file with a library that never expands them, so your host is invisible.</p>
-    </div>
-    <div class="after">
-      <h3>The host block is written for you</h3>
-      <p>Inline, above your <code>Host *</code>, inside markers it can cleanly remove again.
-         Codex finds it on next launch.</p>
-    </div>
-
-    <div class="before">
-      <h3>Install and authenticate on every box</h3>
-      <p>Node, the CLI, a login, the first-run wizard that blocks forever under a service
-         manager because nobody is there to pick a theme.</p>
-    </div>
-    <div class="after">
-      <h3>Bootstrapped and signed in</h3>
-      <p>Agents installed, wizards pre-answered, Claude&nbsp;Code under its own non-root
-         account with its own login — never a copy of your Mac's.</p>
+  <div class="chores">
+    <div class="chore">
+      <div class="then">
+        <span class="tag pain">By hand</span>
+        <h3>Edit <code>~/.ssh/config</code> and hope</h3>
+        <p>An <code>Include</code> won’t do. Codex parses that file with a library that
+           never expands them, so a host behind one is invisible and you get no error
+           explaining why.</p>
+      </div>
+      <div>
+        <span class="tag fix">Codex Remote</span>
+        <h3>The block is written where it’s read</h3>
+        <p>Inline, above your <code>Host *</code> so first-match can’t override it, inside
+           markers it can remove again cleanly.</p>
+      </div>
     </div>
 
-    <div class="before">
-      <h3>Keep something running in a terminal</h3>
-      <p>Close the lid, lose the session. Reboot the box and quietly discover the agent
-         never came back.</p>
-    </div>
-    <div class="after">
-      <h3>systemd units, enabled at boot</h3>
-      <p>Everything it installs comes back after a stop/start. One prefix, so
-         <code>systemctl status 'codex-remote-*'</code> shows the lot.</p>
+    <div class="chore">
+      <div class="then">
+        <span class="tag pain">By hand</span>
+        <h3>Install, log in, answer the wizard</h3>
+        <p>Node, the CLI, an OAuth round trip, then a first-run prompt that blocks forever
+           under a service manager because nobody is there to pick a theme.</p>
+      </div>
+      <div>
+        <span class="tag fix">Codex Remote</span>
+        <h3>Bootstrapped and signed in</h3>
+        <p>Wizards pre-answered. Claude&nbsp;Code runs as its own <code>claude</code> user with
+           its own login, never a copy of your Mac’s — two installs can’t share one
+           refresh token.</p>
+      </div>
     </div>
 
-    <div class="before">
-      <h3>Your MCP servers stay behind</h3>
-      <p>The remote agent is a stranger to every tool you've configured locally.</p>
+    <div class="chore">
+      <div class="then">
+        <span class="tag pain">By hand</span>
+        <h3>Keep a terminal open</h3>
+        <p>Close the lid and lose the session. Reboot the box and find out days later that
+           the agent never came back.</p>
+      </div>
+      <div>
+        <span class="tag fix">Codex Remote</span>
+        <h3>Units, enabled at boot</h3>
+        <p>Everything it installs shares one prefix, so
+           <code>systemctl status 'codex-remote-*'</code> shows the lot — and a stop/start
+           brings all of it back.</p>
+      </div>
     </div>
-    <div class="after">
-      <h3>They come with it</h3>
-      <p>Portable servers are carried over; ones that only exist on your Mac are left
-         behind on purpose, and it tells you which and why.</p>
+
+    <div class="chore">
+      <div class="then">
+        <span class="tag pain">By hand</span>
+        <h3>Leave your MCP servers behind</h3>
+        <p>The remote agent is a stranger to every tool you’ve already wired up.</p>
+      </div>
+      <div>
+        <span class="tag fix">Codex Remote</span>
+        <h3>They travel</h3>
+        <p>Portable servers are copied over. Ones that point at a path only your Mac has
+           are left behind deliberately, and it names each one and why.</p>
+      </div>
     </div>
   </div>
 </section>
 
 <section class="wrap section" id="demo">
-  <div class="section-head">
-    <h2>Click one button. Get a machine.</h2>
-    <p>From an empty menu bar to a running agent you can hand work to.</p>
+  <div class="lead">
+    <div class="eyebrow">Demo</div>
+    <h2>New machine, to a working agent.</h2>
+    <p>Recorded start to finish — no cuts, no sped-up middle.</p>
   </div>
 
-  <div class="demo-frame">
-    <div class="demo-chrome">
-      <span class="dot"></span><span class="dot"></span><span class="dot"></span>
-      <span>Codex Remote</span>
-    </div>
-    <!-- DEMO: replace poster/source with a new recording; keep the attributes. -->
-    <video
-      src="demo.mp4"
-      poster="demo-poster.png"
-      controls playsinline muted loop preload="metadata"
-      aria-label="Screen recording: creating a machine in Codex Remote and using it from Codex">
-      Your browser can't play this video —
-      <a href="demo.mp4">download it instead</a>.
+  <figure class="screen" style="margin-block:34px 0">
+    <div class="screen-bar"><i></i><i></i><i></i><span>codex-remote — demo</span></div>
+    <!-- DEMO SLOT: swap demo.mp4 / demo-poster.png, keep the attributes. -->
+    <video src="demo.mp4" poster="demo-poster.png" controls playsinline muted loop preload="metadata"
+           aria-label="Screen recording: creating a machine in Codex Remote, then using it from Codex.">
+      Your browser can’t play this video — <a href="demo.mp4">download it</a>.
     </video>
-  </div>
-  <p class="caption">Recorded end to end: provision, bootstrap, and the machine appearing in Codex.</p>
+    <figcaption>Provision → bootstrap → the machine appears in Codex.</figcaption>
+  </figure>
 </section>
 
 <section class="wrap section">
-  <div class="section-head">
-    <h2>What happens when you add a machine</h2>
+  <div class="lead">
+    <div class="eyebrow">What it does</div>
+    <h2>Four stages, then it’s yours.</h2>
   </div>
-  <div class="steps">
-    <div class="step">
-      <div class="n">1</div>
-      <h3>Create</h3>
-      <p>OpenTofu applies a small per-cloud module and makes one server with your key on it.
-         Each machine gets its own state, so one can never disturb another.</p>
+
+  <div class="stages">
+    <div class="stage">
+      <div class="k">01</div>
+      <div>
+        <h3>Create</h3>
+        <p>OpenTofu applies a small per-cloud module and makes one server with your key on
+           it. Each machine gets its own state file, so one can never disturb another.</p>
+      </div>
     </div>
-    <div class="step">
-      <div class="n">2</div>
-      <h3>Bootstrap</h3>
-      <p>Base packages, the Codex CLI, Claude&nbsp;Code under its own account, your MCP
-         servers, and a systemd unit for each — all over SSH.</p>
+    <div class="stage">
+      <div class="k">02</div>
+      <div>
+        <h3>Bootstrap over SSH</h3>
+        <p>Base packages, the Codex CLI at <code>/usr/local/bin/codex</code>,
+           Claude&nbsp;Code under its own account, your MCP servers, and a systemd unit for
+           each agent.</p>
+      </div>
     </div>
-    <div class="step">
-      <div class="n">3</div>
-      <h3>Connect</h3>
-      <p>Codex finds the host in your SSH config and starts its app-server there itself.
-         Claude&nbsp;Code dials out to your account. Pair it to reach the box from your phone.</p>
+    <div class="stage">
+      <div class="k">03</div>
+      <div>
+        <h3>Register</h3>
+        <p>A <code>Host codex-remote-&lt;name&gt;</code> block goes into your SSH config —
+           which is how the Codex app finds a machine and starts
+           <code>codex app-server</code> on it over SSH.</p>
+      </div>
+    </div>
+    <div class="stage">
+      <div class="k">04</div>
+      <div>
+        <h3>Connect</h3>
+        <p>Codex picks it up under Connections. Claude&nbsp;Code dials out and appears in
+           your account. Pair it once and the box answers from your phone too.</p>
+      </div>
     </div>
   </div>
 </section>
 
 <section class="wrap section" id="install">
-  <div class="section-head">
-    <h2>Install</h2>
-    <p>Bring your own cloud account — Hetzner, AWS, DigitalOcean, Linode, Vultr or Scaleway.
-       You pay them directly; Codex Remote has no service in the middle.</p>
+  <div class="lead">
+    <div class="eyebrow">Install</div>
+    <h2>Bring your own cloud.</h2>
+    <p>
+      Hetzner, AWS, DigitalOcean, Linode, Vultr or Scaleway. You pay them directly —
+      there is no service in the middle, and no account to make here.
+    </p>
   </div>
 
   <div class="install">
-    <div class="card">
+    <div class="way">
       <h3>Homebrew</h3>
-      <p>The tap keeps it updated with <code>brew upgrade</code>.</p>
-      <div class="cmd">
-        <span class="prompt">$</span>
-        <code id="brew-cmd">brew install --cask pandelisz/tap/codex-remote</code>
-        <button class="copy" data-copy="#brew-cmd">Copy</button>
+      <p>Keeps up to date with <code class="m">brew upgrade</code>.</p>
+      <div class="term">
+        <span class="p">$</span>
+        <code id="c-brew">brew install --cask pandelisz/tap/codex-remote</code>
+        <button data-copy="#c-brew">copy</button>
       </div>
-      <ul class="reqs">
+      <ul>
         <li>macOS 15 (Sequoia) or later</li>
         <li>Apple silicon or Intel</li>
       </ul>
     </div>
 
-    <div class="card">
+    <div class="way">
       <h3>Direct download</h3>
-      <p>A notarised build is attached to every release.</p>
-      <div class="cta" style="margin-top:0">
-        <a class="btn btn-primary btn-sm" href="https://github.com/PandelisZ/codex-remote/releases/latest">
-          Download the latest release
-        </a>
+      <p>Attached to every release. Ad-hoc signed, not notarised — macOS asks the first time.</p>
+      <div class="actions" style="display:flex;gap:10px;flex-wrap:wrap">
+        <a class="btn btn-solid" href="https://github.com/PandelisZ/codex-remote/releases/latest">Latest release</a>
       </div>
-      <ul class="reqs">
-        <li>Unzip and drag to Applications</li>
-        <li>It lives in the menu bar, not the Dock</li>
+      <ul>
+        <li>Unzip, drag to Applications</li>
+        <li>First launch: right-click → Open</li>
+        <li>Lives in the menu bar, not the Dock</li>
       </ul>
     </div>
   </div>
 
-  <div style="margin-top:18px" class="card">
-    <h3>Prefer the terminal?</h3>
-    <p>Everything the menu bar does is scriptable, and vice versa.</p>
-    <div class="cmd">
-      <span class="prompt">$</span>
-      <code id="cli-cmd">codex-remote create --account hetzner --name my-box</code>
-      <button class="copy" data-copy="#cli-cmd">Copy</button>
+  <div style="margin-top:20px">
+    <div class="term">
+      <span class="p">$</span>
+      <code id="c-cli">codex-remote create --account hetzner --name my-box</code>
+      <button data-copy="#c-cli">copy</button>
     </div>
+    <p style="font-family:var(--mono);font-size:12.5px;color:var(--ink-mute);margin:11px 0 0">
+      The CLI ships inside the app. Everything the menu bar does is scriptable, and the reverse.
+    </p>
   </div>
-</section>
 
-<section class="wrap section" style="padding-top:0">
-  <div class="disclaimer">
-    <strong>Not affiliated with OpenAI.</strong>
-    Codex Remote is an independent, open-source project. It is not made, endorsed, sponsored
-    or supported by OpenAI or by Anthropic. “Codex”, “ChatGPT”, “Claude” and “Claude Code”
-    are trademarks of their respective owners and are used here only to describe what this
-    tool interoperates with. You bring your own accounts and your own cloud provider, and
-    your credentials stay on your machine and the machines you create.
+  <div class="notice">
+    <b>Not affiliated with OpenAI.</b>
+    Codex Remote is an independent, open-source project. It is not made, endorsed,
+    sponsored or supported by OpenAI or by Anthropic. “Codex”, “ChatGPT”, “Claude” and
+    “Claude Code” are trademarks of their respective owners, used here only to describe
+    what this tool works with. You bring your own accounts and your own cloud provider,
+    and your credentials stay on your Mac and on the machines you create.
   </div>
 </section>
 
@@ -448,7 +538,7 @@ footer {
 
 <footer>
   <div class="wrap foot">
-    <div class="brand"><span class="mark">▤</span> Codex Remote</div>
+    <span>Codex Remote · MIT</span>
     <nav>
       <a href="https://github.com/PandelisZ/codex-remote">GitHub</a>
       <a href="https://github.com/PandelisZ/codex-remote/blob/main/docs/agents.md">Docs</a>
@@ -459,28 +549,24 @@ footer {
 </footer>
 
 <script>
-// Copy buttons. Clipboard access can be refused (insecure context, permissions policy),
-// so the button says what actually happened rather than always claiming success.
-for (const button of document.querySelectorAll('.copy')) {
+for (const button of document.querySelectorAll('[data-copy]')) {
   button.addEventListener('click', async () => {
-    const text = document.querySelector(button.dataset.copy)?.textContent ?? '';
-    const done = (label) => {
-      const previous = button.textContent;
-      button.textContent = label;
-      setTimeout(() => { button.textContent = previous; }, 1400);
-    };
+    const target = document.querySelector(button.dataset.copy);
+    const restore = button.textContent;
+    const say = (text) => { button.textContent = text; setTimeout(() => { button.textContent = restore; }, 1400); };
     try {
-      await navigator.clipboard.writeText(text);
-      done('Copied');
+      await navigator.clipboard.writeText(target.textContent);
+      say('copied');
     } catch {
-      // Select it instead, so there is still a one-gesture way to take the command.
-      const node = document.querySelector(button.dataset.copy);
+      // Clipboard access gets refused often enough (insecure context, permissions
+      // policy) that silently doing nothing would be the worst outcome. Select it
+      // instead, so there is still one gesture left to take the command.
       const range = document.createRange();
-      range.selectNodeContents(node);
+      range.selectNodeContents(target);
       const selection = getSelection();
       selection.removeAllRanges();
       selection.addRange(range);
-      done('Select & copy');
+      say('selected');
     }
   });
 }

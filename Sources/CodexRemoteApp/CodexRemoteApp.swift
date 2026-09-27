@@ -21,17 +21,9 @@ struct CodexRemoteApp: App {
             // the item is just a symbol. It still carries state — a count when machines are
             // online, a different glyph while setting up or when something failed — so the
             // status is readable without opening anything, and not by colour alone.
-            HStack(spacing: 3) {
-                Image(systemName: state.menuBarSymbol)
-                    .accessibilityHidden(true)
-                if state.onlineCount > 0 {
-                    Text("\(state.onlineCount)")
-                        .font(.system(size: 11, weight: .semibold, design: .rounded))
-                        .monospacedDigit()
-                        .accessibilityHidden(true)
-                }
-            }
-            .accessibilityLabel(state.menuBarAccessibilityLabel)
+            MenuBarLabel(symbol: state.menuBarSymbol,
+                         count: state.onlineCount,
+                         spoken: state.menuBarAccessibilityLabel)
         }
         .menuBarExtraStyle(.window)
 
@@ -91,6 +83,19 @@ struct CodexRemoteApp: App {
     }
 }
 
+/// Holds SwiftUI's `openWindow` action so code outside the view tree — the menu command,
+/// the app delegate — can open the panel window.
+///
+/// A `Window` scene has no `NSWindow` until something opens it, so looking through
+/// `NSApp.windows` for it finds nothing on a fresh launch, and only SwiftUI's own action
+/// can bring it into being. This used to fall back to opening a `codex-remote://` URL, a
+/// scheme the bundle never registered, so the menu item quietly did nothing at all.
+@MainActor
+final class PanelWindow {
+    static let shared = PanelWindow()
+    var open: (() -> Void)?
+}
+
 /// Opens (or re-focuses) the standalone panel window.
 @MainActor
 func openPanelWindow() {
@@ -99,7 +104,31 @@ func openPanelWindow() {
         existing.makeKeyAndOrderFront(nil)
         return
     }
-    NSWorkspace.shared.open(URL(string: "codex-remote://panel")!)
+    PanelWindow.shared.open?()
+}
+
+/// Lends the menu bar label its environment, which is the only place in an accessory app
+/// guaranteed to be instantiated at launch.
+private struct MenuBarLabel: View {
+    @Environment(\.openWindow) private var openWindow
+    let symbol: String
+    let count: Int
+    let spoken: String
+
+    var body: some View {
+        HStack(spacing: 3) {
+            Image(systemName: symbol)
+                .accessibilityHidden(true)
+            if count > 0 {
+                Text("\(count)")
+                    .font(.system(size: 11, weight: .semibold, design: .rounded))
+                    .monospacedDigit()
+                    .accessibilityHidden(true)
+            }
+        }
+        .accessibilityLabel(spoken)
+        .task { PanelWindow.shared.open = { openWindow(id: CodexRemoteApp.panelWindowID) } }
+    }
 }
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
@@ -112,9 +141,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         Log.shared.info("app", "Codex Remote started.")
         if showInDock {
             // Give the scene graph a moment to register the window before asking for it.
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
-                NSApp.windows.first { $0.title == "Codex Remote" }?.makeKeyAndOrderFront(nil)
-                NSApp.activate(ignoringOtherApps: true)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+                openPanelWindow()
             }
         }
     }

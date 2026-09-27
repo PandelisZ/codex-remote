@@ -123,9 +123,25 @@ struct MachinePresentation {
         } else {
             switch machine.health {
             case .online:
-                symbol = "checkmark.circle.fill"
-                tint = .green
-                spokenState = "online"
+                // Green means someone is working on this box; blue means it is up but
+                // idle, so stopping it interrupts nothing. The distinction is the whole
+                // point of the indicator — it answers "can I turn this off?" at a glance.
+                // A machine that has not reported yet stays green rather than claiming
+                // idle, because "safe to stop" must never be a guess.
+                switch machine.activeSessions {
+                case .some(0):
+                    symbol = "moon.zzz.fill"
+                    tint = .blue
+                    spokenState = "online and idle, safe to stop"
+                case .some(let count):
+                    symbol = "checkmark.circle.fill"
+                    tint = .green
+                    spokenState = "online, \(count) session\(count == 1 ? "" : "s") running"
+                case .none:
+                    symbol = "checkmark.circle.fill"
+                    tint = .green
+                    spokenState = "online"
+                }
             case .degraded:
                 symbol = "exclamationmark.circle.fill"
                 tint = .orange

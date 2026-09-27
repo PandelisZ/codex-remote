@@ -151,9 +151,15 @@ struct MachineRow: View {
         }
 
         if machine.isReady {
-            Button("Open") { state.openInCodex(machine) }
+            Button("Open") {
+                // A Claude-only machine has no launcher to run; its session is the thing
+                // to open. Sending it to the Codex path would only ever show an error.
+                if machine.runs(.codex) { state.openInCodex(machine) }
+                else { state.openInClaude(machine) }
+            }
                 .buttonStyle(PrimaryGlassButtonStyle())
-                .help("Open a Codex session on \(machine.name)")
+                .help(machine.runs(.codex) ? "Open a Codex session on \(machine.name)"
+                                           : "Open \(machine.name) in Claude")
         }
 
         Image(systemName: "chevron.down")
@@ -211,21 +217,47 @@ struct MachineRow: View {
     private var actions: some View {
         HStack(spacing: Theme.Space.snug) {
             if machine.isReady {
-                Button {
-                    state.openInCodex(machine)
-                } label: {
-                    Label("Open in Codex", systemImage: "terminal")
+                if machine.runs(.codex) {
+                    Button {
+                        state.openInCodex(machine)
+                    } label: {
+                        Label("Open in Codex", systemImage: "terminal")
+                    }
+                    .controlSize(.small)
                 }
-                .controlSize(.small)
+                if machine.runs(.claudeCode) {
+                    Button {
+                        state.openInClaude(machine)
+                    } label: {
+                        Label("Open in Claude", systemImage: "arrow.up.forward.app")
+                    }
+                    .controlSize(.small)
+                    .disabled(machine.claudeSessionURL == nil)
+                }
             }
 
             Menu {
-                Button("Copy `codex --remote` command") { state.copyConnectCommand(machine) }
-                Button("Copy `ssh \(machine.sshHostAlias)`") { state.copySSHCommand(machine) }
+                // Grouped by agent, because a machine can run either or both and the
+                // actions are not interchangeable: Codex opens a terminal, Claude opens a
+                // session in your account.
                 if machine.runs(.codex) {
-                    Divider()
-                    Button("Pair with Codex…") { openCodexPairing() }
+                    Section("Codex") {
+                        Button("Open in Codex") { state.openInCodex(machine) }
+                        Button("Copy `codex --remote` command") { state.copyConnectCommand(machine) }
+                        Button("Pair with Codex…") { openCodexPairing() }
+                    }
                 }
+                if machine.runs(.claudeCode) {
+                    Section("Claude Code") {
+                        Button("Open Claude session") { state.openInClaude(machine) }
+                            .disabled(machine.claudeSessionURL == nil)
+                        Button("Copy session link") { state.copyClaudeSessionURL(machine) }
+                            .disabled(machine.claudeSessionURL == nil)
+                        Button(needsClaudeSignIn ? "Sign in to Claude…" : "Sign in again…") { openSignIn() }
+                    }
+                }
+                Divider()
+                Button("Copy `ssh \(machine.sshHostAlias)`") { state.copySSHCommand(machine) }
                 Divider()
                 Button("Reconnect tunnel") { state.reconnect(machine) }
                 Button("Re-run remote setup") { state.repair(machine) }

@@ -64,6 +64,34 @@ public enum PowerIntent: String, Codable, Sendable {
     case down     // keep it stopped
 }
 
+/// A cheap sample of what the machine is actually doing, so the row can say something
+/// about the box itself rather than repeating a local port number back at you.
+public struct SystemMetrics: Codable, Sendable, Hashable {
+    /// Busy percentage across all cores, 0–100, measured over a short window.
+    public let cpuPercent: Double
+    public let memoryUsedBytes: Int64
+    public let memoryTotalBytes: Int64
+    public let sampledAt: Date
+
+    public init(cpuPercent: Double, memoryUsedBytes: Int64, memoryTotalBytes: Int64,
+                sampledAt: Date = Date()) {
+        self.cpuPercent = cpuPercent
+        self.memoryUsedBytes = memoryUsedBytes
+        self.memoryTotalBytes = memoryTotalBytes
+        self.sampledAt = sampledAt
+    }
+
+    /// e.g. `CPU 12% · RAM 1.2/16 GB`. Rounded hard: this is a glanceable line in a menu,
+    /// not a monitoring tool, and spurious precision would only make it harder to read.
+    public var summary: String {
+        let used = Double(memoryUsedBytes) / 1_073_741_824
+        let total = Double(memoryTotalBytes) / 1_073_741_824
+        let usedText = used < 10 ? String(format: "%.1f", used) : String(Int(used.rounded()))
+        let totalText = total < 10 ? String(format: "%.1f", total) : String(Int(total.rounded()))
+        return "CPU \(Int(cpuPercent.rounded()))% · RAM \(usedText)/\(totalText) GB"
+    }
+}
+
 public struct MachineSpec: Codable, Hashable, Sendable {
     /// Not under `/root`: that directory is mode 700, so the unprivileged account Claude
     /// Code runs as could not even traverse into it. `/srv/workspace` is reachable by both
@@ -172,6 +200,11 @@ public struct Machine: Codable, Hashable, Sendable, Identifiable {
     public var privateKeyPath: String
     /// What each installed agent is doing, as last observed.
     public var agentStatuses: [AgentStatus]
+    public var metrics: SystemMetrics?
+    /// How many agent sessions are live on the machine right now. nil means "not sampled
+    /// yet" and is deliberately different from 0, which means "nothing is running, so this
+    /// is safe to stop".
+    public var activeSessions: Int?
     public var lastError: String?
     public var lastHealthyAt: Date?
     public var createdAt: Date
@@ -182,7 +215,8 @@ public struct Machine: Codable, Hashable, Sendable, Identifiable {
                 health: ConnectionHealth = .unknown, powerIntent: PowerIntent = .up,
                 localPort: Int, remotePort: Int = 1456, sshHostAlias: String,
                 sshUser: String = "root", sshPort: Int = 22, privateKeyPath: String,
-                agentStatuses: [AgentStatus] = [],
+                agentStatuses: [AgentStatus] = [], metrics: SystemMetrics? = nil,
+                activeSessions: Int? = nil,
                 lastError: String? = nil, lastHealthyAt: Date? = nil,
                 createdAt: Date = Date(), codexVersion: String? = nil) {
         self.id = id
@@ -199,6 +233,8 @@ public struct Machine: Codable, Hashable, Sendable, Identifiable {
         self.sshPort = sshPort
         self.privateKeyPath = privateKeyPath
         self.agentStatuses = agentStatuses
+        self.metrics = metrics
+        self.activeSessions = activeSessions
         self.lastError = lastError
         self.lastHealthyAt = lastHealthyAt
         self.createdAt = createdAt
@@ -222,6 +258,8 @@ public struct Machine: Codable, Hashable, Sendable, Identifiable {
         sshPort = try container.decodeIfPresent(Int.self, forKey: .sshPort) ?? 22
         privateKeyPath = try container.decode(String.self, forKey: .privateKeyPath)
         agentStatuses = try container.decodeIfPresent([AgentStatus].self, forKey: .agentStatuses) ?? []
+        metrics = try container.decodeIfPresent(SystemMetrics.self, forKey: .metrics)
+        activeSessions = try container.decodeIfPresent(Int.self, forKey: .activeSessions)
         lastError = try container.decodeIfPresent(String.self, forKey: .lastError)
         lastHealthyAt = try container.decodeIfPresent(Date.self, forKey: .lastHealthyAt)
         createdAt = try container.decodeIfPresent(Date.self, forKey: .createdAt) ?? Date()
@@ -262,9 +300,17 @@ public struct Machine: Codable, Hashable, Sendable, Identifiable {
         if stage != .ready { return stage.label }
 
         var parts: [String] = []
+        // What the box is doing beats a local port number you already know: the endpoint
+        // is the same loopback address every time, and says nothing about the machine.
+        if health == .online, let activeSessions {
+            parts.append(activeSessions == 0 ? "idle"
+                         : "\(activeSessions) session\(activeSessions == 1 ? "" : "s")")
+        }
+        if health == .online, let metrics { parts.append(metrics.summary) }
+
         if runs(.codex) {
             switch health {
-            case .online: parts.append("Codex on \(endpoint)")
+            case .online: break
             case .degraded: parts.append("Codex not answering")
             case .offline: parts.append(powerIntent == .down ? "Paused" : "Codex offline")
             case .unknown: parts.append("Codex checking…")

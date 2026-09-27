@@ -252,6 +252,28 @@ final class AppState: ObservableObject {
         }
     }
 
+    /// Opens the machine's live Claude session in the browser. A Claude machine has no
+    /// local endpoint to launch a terminal against — it lives in the account — so the
+    /// session URL is the equivalent of Codex's launcher.
+    func openInClaude(_ machine: Machine) {
+        guard let url = machine.claudeSessionURL.flatMap(URL.init(string:)) else {
+            banner = Banner(kind: .warning,
+                            message: "\(machine.name) has no Claude session yet. Sign it in first.")
+            return
+        }
+        NSWorkspace.shared.open(url)
+    }
+
+    func copyClaudeSessionURL(_ machine: Machine) {
+        guard let url = machine.claudeSessionURL else {
+            banner = Banner(kind: .warning, message: "\(machine.name) has no Claude session yet.")
+            return
+        }
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(url, forType: .string)
+        banner = Banner(kind: .info, message: "Copied the Claude session link.")
+    }
+
     func copyConnectCommand(_ machine: Machine) {
         let command = CodexRegistrar.connectCommand(for: machine)
         NSPasteboard.general.clearContents()
