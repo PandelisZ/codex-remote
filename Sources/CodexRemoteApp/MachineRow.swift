@@ -257,6 +257,23 @@ struct MachineRow: View {
                     }
                 }
                 Divider()
+                // Both agents already record the projects you work on, so this is a pick
+                // rather than a path to remember. Recent first; the submenu is built when
+                // the menu opens so it never reads a stale list.
+                Menu("Send a project") {
+                    let projects = state.discoverProjects()
+                    if projects.isEmpty {
+                        Text("No projects found in Codex or Claude Code")
+                    } else {
+                        ForEach(projects) { project in
+                            Button {
+                                state.sendProject(project, to: machine)
+                            } label: {
+                                Text("\(project.name)  —  \(project.sourceLabel)")
+                            }
+                        }
+                    }
+                }
                 Button("Copy `ssh \(machine.sshHostAlias)`") { state.copySSHCommand(machine) }
                 Divider()
                 Button("Reconnect tunnel") { state.reconnect(machine) }

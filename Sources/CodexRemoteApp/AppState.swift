@@ -257,6 +257,22 @@ final class AppState: ObservableObject {
     /// Opens the machine's live Claude session in the browser. A Claude machine has no
     /// local endpoint to launch a terminal against — it lives in the account — so the
     /// session URL is the equivalent of Codex's launcher.
+    func discoverProjects() -> [ProjectDiscovery.Found] { ProjectDiscovery.discover(limit: 25) }
+
+    /// Sends a project to a machine, reporting progress through the same banner the rest of
+    /// the app uses.
+    func sendProject(_ project: ProjectDiscovery.Found, to machine: Machine) {
+        banner = Banner(kind: .info, message: "Sending \(project.name) to \(machine.name)…")
+        Task {
+            do {
+                let destination = try await manager.syncProject(machine.id, localPath: project.path)
+                banner = Banner(kind: .info, message: "\(project.name) is at \(destination) on \(machine.name).")
+            } catch {
+                banner = Banner(kind: .error, message: error.localizedDescription)
+            }
+        }
+    }
+
     func copySetupPrompt() {
         let cli = Bundle.main.url(forAuxiliaryExecutable: "codex-remote")?.path ?? "codex-remote"
         let prompt = SetupPrompt.firstMachine(hasAccount: !accounts.isEmpty, cliPath: cli)

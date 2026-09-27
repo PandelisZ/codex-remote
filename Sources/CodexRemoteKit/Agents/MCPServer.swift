@@ -120,6 +120,11 @@ public actor MCPServer {
                           "required": ["name", "command"]],
                  level: .write),
 
+            Tool(name: "list_local_projects",
+                 description: "Projects the user already works on, read from Codex's and Claude Code's own records: name, path, which agent knows it, and when it was last used. Use this to offer a choice rather than asking for a path.",
+                 schema: ["type": "object", "properties": [:]],
+                 level: .read),
+
             Tool(name: "sync_project",
                  description: "Put a local project on a machine. Clones from its git remote when the work is pushed, copies it when it is not, and separately sends untracked config like .env that a clone cannot carry. Excludes node_modules and other rebuildable bulk.",
                  schema: ["type": "object",
@@ -194,6 +199,7 @@ public actor MCPServer {
             case "list_machines":   return (try listMachines(), false)
             case "machine_status":  return (try status(arguments), false)
             case "list_providers":  return (listProviders(), false)
+            case "list_local_projects": return (localProjects(), false)
             case "list_sizes":      return (try await sizes(arguments), false)
             case "run_command":     return (try await run(arguments), false)
             case "sync_project":    return (try await sync(arguments), false)
@@ -350,6 +356,20 @@ public actor MCPServer {
         if output.isEmpty { output = "(no output)" }
         // The exit code is the part an agent most often needs and most often cannot see.
         return result.succeeded ? output : "exit \(result.exitCode)\n\(output)"
+    }
+
+    private func localProjects() -> String {
+        let found = ProjectDiscovery.discover()
+        guard !found.isEmpty else {
+            return "No projects found in Codex or Claude Code yet."
+        }
+        let stamp = DateFormatter()
+        stamp.dateStyle = .medium
+        stamp.timeStyle = .none
+        return found.map { project in
+            let when = project.lastUsed.map { stamp.string(from: $0) } ?? "never opened"
+            return "- \(project.name) — \(project.path) · \(project.sourceLabel) · \(when)"
+        }.joined(separator: "\n")
     }
 
     private func sync(_ arguments: [String: Any]) async throws -> String {

@@ -443,3 +443,48 @@ final class ProjectSyncTests: XCTestCase {
         XCTAssertTrue(script.contains("git clone"))
     }
 }
+
+/// Finding the projects someone already works on, so sending one is a pick rather than a
+/// path they have to remember.
+final class ProjectDiscoveryTests: XCTestCase {
+    /// Rsyncing a home directory or the filesystem root would be catastrophic, and both
+    /// get opened by accident.
+    func testTheHomeDirectoryAndRootAreNeverOffered() {
+        let home = FileManager.default.homeDirectoryForCurrentUser.path
+        XCTAssertFalse(ProjectDiscovery.isSendable(home))
+        XCTAssertFalse(ProjectDiscovery.isSendable("/"))
+    }
+
+    /// A worktree already appears in the list under the repo's own path; sending one would
+    /// copy a detached checkout.
+    func testWorktreesAreSkipped() {
+        XCTAssertFalse(ProjectDiscovery.isSendable("/Users/x/w/app/.claude/worktrees/thing"))
+        XCTAssertFalse(ProjectDiscovery.isSendable("/Users/x/w/app/.git/worktrees/thing"))
+    }
+
+    /// Caches and temp directories are scratch, not projects.
+    func testScratchDirectoriesAreSkipped() {
+        for path in ["/Users/x/Library/Caches/thing", "/private/tmp/thing",
+                     "/var/folders/ab/thing", "/Users/x/app/node_modules/pkg"] {
+            XCTAssertFalse(ProjectDiscovery.isSendable(path), "should skip \(path)")
+        }
+    }
+
+    /// A path recorded by an agent months ago may simply be gone, and a list that offers it
+    /// wastes the user's time.
+    func testAPathThatNoLongerExistsIsNotOffered() {
+        XCTAssertFalse(ProjectDiscovery.isSendable("/definitely/not/here/\(UUID().uuidString)"))
+    }
+
+    /// Claude Code names a project's directory after its path with separators replaced;
+    /// getting this wrong costs the recency ordering, silently.
+    func testTheClaudeSessionDirectoryNameIsDerivedCorrectly() {
+        XCTAssertEqual(ProjectDiscovery.slug(for: "/Users/pz/w/vex"), "-Users-pz-w-vex")
+        XCTAssertEqual(ProjectDiscovery.slug(for: "/Users/pz/my.app"), "-Users-pz-my-app")
+    }
+
+    /// Reading someone's real machine: both files may be missing, and neither is required.
+    func testDiscoveryNeverThrowsOnAMachineWithNeitherAgent() {
+        XCTAssertNoThrow(ProjectDiscovery.discover())
+    }
+}
