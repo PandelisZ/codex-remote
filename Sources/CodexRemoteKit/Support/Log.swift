@@ -3,7 +3,7 @@ import Foundation
 /// The single place the version lives, so the MCP handshake, the CLI and the bundle cannot
 /// drift apart. Kept in step with the VERSION file by Scripts/bundle.sh.
 public enum CodexRemoteVersion {
-    public static let current = "0.2.0"
+    public static let current = "0.3.0"
 }
 
 import Foundation

@@ -1,8 +1,8 @@
 {
-  "version": "0.2.0",
-  "url": "https://github.com/PandelisZ/codex-remote/releases/download/v0.2.0/CodexRemote-0.2.0.zip",
-  "sha256": "656c55a3f9e2525f404b13272153c632ed50dc30a5e3769a42fcaae8686e544c",
-  "notes": "Project sync, an MCP server, and the provider registry.",
-  "publishedAt": "2026-09-27T21:50:00Z",
+  "version": "0.3.0",
+  "url": "https://github.com/PandelisZ/codex-remote/releases/download/v0.3.0/CodexRemote-0.3.0.zip",
+  "sha256": "5e2528d806f7698a50d296a57d7929d00f229f882d947eef85f9b40f9bbc92be",
+  "notes": "Project detection, self-updating, and a redesigned site.\n\n**Codex Remote now finds the projects you already work on.** Both agents keep that list \u2014 Codex records `local-projects` with names, roots and timestamps; Claude Code keys `~/.claude.json` by path. Send one with **Send a project** on any machine row, `codex-remote projects`, or the `list_local_projects` MCP tool so an agent offers a choice rather than asking for a path.\n\n**It keeps itself up to date.** Installed copies poll [codexremote.io/latest.json](https://codexremote.io/latest.json), which you can curl yourself. The download is verified against the SHA-256 published there \u2014 this build is not notarised, so that checksum rather than Apple is what you are trusting. A Homebrew-installed copy refuses to update itself and offers `brew upgrade` instead, because replacing the bundle would leave brew's records pointing at a version that is no longer there.\n\n**A download button**, for anyone not using Homebrew.\n\n**[CONTRIBUTING.md](https://github.com/PandelisZ/codex-remote/blob/main/CONTRIBUTING.md)**, which leads with adding a cloud provider \u2014 the contribution that needs neither Swift nor a release.\n\n**The site is rebuilt** as the operator's guide that used to ship in the box with a workstation, and HTTPS now works on codexremote.io.",
+  "publishedAt": "2026-09-27T23:12:13Z",
   "minimumSystemVersion": "15.0"
 }
