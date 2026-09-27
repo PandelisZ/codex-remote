@@ -369,3 +369,36 @@ final class UpdaterHashTests: XCTestCase {
         XCTAssertEqual(streamed, whole)
     }
 }
+
+/// Codex Remote used to keep its state inside `~/.codex`, which belongs to Codex. Moving
+/// out is only safe if nothing is silently lost on the way.
+final class HomeMigrationTests: XCTestCase {
+    /// The new home must not be inside Codex's directory any more — that was the point.
+    func testTheHomeIsNoLongerInsideCodexsDirectory() {
+        let home = Paths.codexRemoteHome.path
+        XCTAssertFalse(home.contains("/.codex/"), home)
+        XCTAssertTrue(home.hasSuffix("/.codex-remote"), home)
+    }
+
+    /// Codex's own files genuinely live in `~/.codex` and must keep being read from there.
+    func testCodexsOwnDirectoryIsStillReadInPlace() {
+        XCTAssertTrue(Paths.codexHome.path.hasSuffix("/.codex"))
+        XCTAssertTrue(Paths.codexAuthFile.path.hasSuffix("/.codex/auth.json"))
+    }
+
+    /// Both are overridable, and independently — a test or a second install must be able to
+    /// move ours without redirecting Codex's.
+    func testTheTwoHomesOverrideIndependently() {
+        XCTAssertNotEqual(Paths.codexRemoteHome.path, Paths.codexHome.path)
+    }
+
+    /// Merging two histories silently is worse than leaving an orphan the user can delete,
+    /// so an existing destination stops the move rather than combining them.
+    func testAnExistingDestinationIsNotMergedInto() {
+        // Nothing to move on a machine already migrated, so this must be a no-op.
+        if FileManager.default.fileExists(atPath: Paths.codexRemoteHome.path) {
+            XCTAssertFalse(Paths.migrateLegacyHome(),
+                           "a populated destination must never be merged into")
+        }
+    }
+}

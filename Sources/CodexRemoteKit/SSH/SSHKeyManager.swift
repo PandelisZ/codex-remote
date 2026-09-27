@@ -2,7 +2,7 @@ import Foundation
 import CryptoKit
 
 /// Owns the ed25519 keypair Codex Remote installs on every machine it provisions.
-/// One key per Mac, kept at `~/.codex/codex-remote/keys/id_codex-remote`, never reused for anything else.
+/// One key per Mac, kept at `~/.codex-remote/keys/id_codex-remote`, never reused for anything else.
 public enum SSHKeyManager {
     public struct KeyPair: Sendable {
         public let privateKeyPath: String

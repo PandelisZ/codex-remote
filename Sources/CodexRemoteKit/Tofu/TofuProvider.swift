@@ -4,7 +4,7 @@ import Foundation
 ///
 /// Everything above it — the SSH bootstrap, the tunnel, the Codex registration — is
 /// unchanged; this only swaps out how the server comes into existence. Each machine gets
-/// its own workspace under `~/.codex/codex-remote/tofu/machines/<id>/`, so one machine's state
+/// its own workspace under `~/.codex-remote/tofu/machines/<id>/`, so one machine's state
 /// can never disturb another's.
 ///
 /// Where Codex Remote already has a native API client for the same cloud, that client is kept as

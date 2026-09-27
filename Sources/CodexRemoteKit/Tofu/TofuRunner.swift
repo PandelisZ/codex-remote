@@ -5,7 +5,7 @@ import Foundation
 /// Codex Remote ships `tofu` inside its app bundle rather than asking the user to install it —
 /// the point of the app is that adding a machine is one click. If the bundled copy is
 /// missing (running from `swift build`, or a stripped bundle) it downloads a verified copy
-/// into `~/.codex/codex-remote/tofu/bin` once and reuses it.
+/// into `~/.codex-remote/tofu/bin` once and reuses it.
 public final class TofuRunner: @unchecked Sendable {
     public static let shared = TofuRunner()
 

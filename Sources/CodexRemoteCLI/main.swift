@@ -87,7 +87,7 @@ func usage() -> String {
       logs [-n 200]                      Recent activity
       connect-command <name>             Print the raw codex --remote command
 
-    Machines are stored in ~/.codex/codex-remote/machines.json; tokens are in the login keychain.
+    Machines are stored in ~/.codex-remote/machines.json; tokens are in the login keychain.
     """
 }
 
@@ -522,7 +522,7 @@ func runDoctor() async {
     check("shell integration", CodexRegistrar.shellIntegrationInstalled(),
           CodexRegistrar.shellIntegrationInstalled()
             ? "sourced from your shell profile"
-            : "add: [ -f \"$HOME/.codex/codex-remote/shell.sh\" ] && . \"$HOME/.codex/codex-remote/shell.sh\"")
+            : "add: [ -f \"$HOME/.codex-remote/shell.sh\" ] && . \"$HOME/.codex-remote/shell.sh\"")
 
     check("Codex desktop app", CodexAppRegistrar.isCodexAppInstalled,
           CodexAppRegistrar.isCodexAppInstalled

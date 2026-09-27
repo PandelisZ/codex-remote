@@ -14,8 +14,22 @@ public enum Paths {
         return home.appendingPathComponent(".codex", isDirectory: true)
     }
 
-    /// Codex Remote keeps its state inside the Codex home so the two travel together.
-    public static var codexRemoteHome: URL { codexHome.appendingPathComponent("codex-remote", isDirectory: true) }
+    /// `~/.codex-remote`, unless CODEX_REMOTE_HOME overrides it.
+    ///
+    /// This used to live at `~/.codex/codex-remote`, inside Codex's own directory. That was
+    /// the wrong place: `~/.codex` belongs to Codex, and a second product writing a
+    /// subdirectory into it means `codex` cannot clean up after itself without taking our
+    /// state, and our uninstall cannot remove its own directory without touching theirs.
+    /// `migrateLegacyHome()` moves anything left at the old path.
+    public static var codexRemoteHome: URL {
+        if let override = ProcessInfo.processInfo.environment["CODEX_REMOTE_HOME"], !override.isEmpty {
+            return URL(fileURLWithPath: (override as NSString).expandingTildeInPath, isDirectory: true)
+        }
+        return home.appendingPathComponent(".codex-remote", isDirectory: true)
+    }
+
+    /// Where it used to be. Only read, and only to move what is there.
+    static var legacyHome: URL { codexHome.appendingPathComponent("codex-remote", isDirectory: true) }
     public static var machinesFile: URL { codexRemoteHome.appendingPathComponent("machines.json") }
     public static var accountsFile: URL { codexRemoteHome.appendingPathComponent("accounts.json") }
     public static var settingsFile: URL { codexRemoteHome.appendingPathComponent("settings.json") }
@@ -31,7 +45,35 @@ public enum Paths {
 
     public static var codexAuthFile: URL { codexHome.appendingPathComponent("auth.json") }
 
+    /// Moves state from `~/.codex/codex-remote` if it is still there.
+    ///
+    /// A move rather than a copy, so there is exactly one directory afterwards and no
+    /// question about which one is live — the OpenTofu install alone can be most of a
+    /// gigabyte. If the destination already exists the old one is left completely alone:
+    /// merging two histories silently is a worse outcome than an orphaned directory the
+    /// user can delete.
+    @discardableResult
+    public static func migrateLegacyHome() -> Bool {
+        let fm = FileManager.default
+        let old = legacyHome, new = codexRemoteHome
+        guard fm.fileExists(atPath: old.path), !fm.fileExists(atPath: new.path) else { return false }
+        do {
+            try fm.createDirectory(at: new.deletingLastPathComponent(), withIntermediateDirectories: true)
+            try fm.moveItem(at: old, to: new)
+            Log.shared.info("paths", "Moved state from ~/.codex/codex-remote to \(new.path).")
+            // A profile line still pointing at the old path now sources a missing file.
+            CodexRegistrar.migrateShellIntegration()
+            return true
+        } catch {
+            // Not fatal: the app starts fresh rather than refusing to run, and the old
+            // directory is still there to move by hand.
+            Log.shared.warn("paths", "Could not move state out of ~/.codex: \(error.localizedDescription)")
+            return false
+        }
+    }
+
     public static func ensureDirectories() throws {
+        migrateLegacyHome()
         let fm = FileManager.default
         for dir in [codexRemoteHome, binDir, keysDir, logsDir, sshConfigD] {
             try fm.createDirectory(at: dir, withIntermediateDirectories: true,

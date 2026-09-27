@@ -174,12 +174,12 @@ Entries Codex Remote did not create are never touched, and the first write backs
 
 | | |
 |---|---|
-| `~/.codex/codex-remote/machines.json` | machine registry |
-| `~/.codex/codex-remote/bin/` | one launcher per machine, plus `codex-attach` |
-| `~/.codex/codex-remote/keys/id_codex-remote` | the key Codex Remote installs on machines it creates |
+| `~/.codex-remote/machines.json` | machine registry |
+| `~/.codex-remote/bin/` | one launcher per machine, plus `codex-attach` |
+| `~/.codex-remote/keys/id_codex-remote` | the key Codex Remote installs on machines it creates |
 | `~/.ssh/config.d/codex-remote` | host entries, included from `~/.ssh/config` |
-| `~/.codex/codex-remote/tofu/machines/<id>/` | one OpenTofu workspace and state file per machine |
-| `~/.codex/codex-remote/tofu/plugin-cache/` | provider plugins, downloaded once and shared |
+| `~/.codex-remote/tofu/machines/<id>/` | one OpenTofu workspace and state file per machine |
+| `~/.codex-remote/tofu/plugin-cache/` | provider plugins, downloaded once and shared |
 | login keychain | provider tokens and per-machine app-server tokens |
 
 No token is ever written to a config file, a launcher, a log line, or a command line. Each

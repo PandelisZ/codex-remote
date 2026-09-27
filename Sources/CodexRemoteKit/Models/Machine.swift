@@ -180,7 +180,7 @@ public struct MachineSpec: Codable, Hashable, Sendable {
 }
 
 /// Everything Codex Remote knows about one managed machine. Persisted to
-/// `~/.codex/codex-remote/machines.json`; the app-server bearer token is in the keychain.
+/// `~/.codex-remote/machines.json`; the app-server bearer token is in the keychain.
 public struct Machine: Codable, Hashable, Sendable, Identifiable {
     public let id: UUID
     public var spec: MachineSpec

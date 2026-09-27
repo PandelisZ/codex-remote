@@ -46,7 +46,7 @@ in a config file, a launcher script, a log line, or a command line.
 ## Single ownership
 
 Tunnels bind fixed loopback ports and the registry is a shared file, so exactly one process
-may own the running side. `RuntimeLock` is a `flock` on `~/.codex/codex-remote/owner.lock`;
+may own the running side. `RuntimeLock` is a `flock` on `~/.codex-remote/owner.lock`;
 whoever holds it runs the tunnels, the health polling and the Codex app sync. It is
 released automatically when the holder exits, even on a crash.
 
@@ -56,7 +56,7 @@ endless "Address already in use" reconnect loop.
 ## Why OpenTofu, and what it does not do
 
 Every machine is created and destroyed by OpenTofu, applying a per-cloud `TofuModule` in
-its own workspace under `~/.codex/codex-remote/tofu/machines/<machine-id>/`. The binary ships
+its own workspace under `~/.codex-remote/tofu/machines/<machine-id>/`. The binary ships
 inside the app bundle; if it is missing the runner downloads a pinned release and verifies
 it against OpenTofu's published checksums before using it.
 
@@ -92,7 +92,20 @@ both while you are installing.
 
 ## Files Codex Remote owns, and files it borrows
 
-It owns `~/.codex/codex-remote/` outright.
+It owns `~/.codex-remote/` outright.
+
+This used to be `~/.codex/codex-remote`, inside Codex's own directory. That was the wrong
+place: `~/.codex` belongs to Codex, so `codex` could not clean up after itself without
+taking our state, and our uninstall could not remove its own directory without touching
+theirs. `Paths.migrateLegacyHome()` moves anything still at the old path on first use, and
+repoints a shell profile that sourced the old `shell.sh`.
+
+The move is one-way and the destination is never merged into: if `~/.codex-remote` already
+exists, the old directory is left alone rather than combined, because silently merging two
+histories is worse than an orphan the user can delete. One consequence during a version
+transition: a copy of Codex Remote from before the move, still running, will recreate
+`~/.codex/codex-remote` and write to it. Its writes are not picked up. Quit the old copy
+before relying on the new one.
 
 It borrows two files belonging to someone else and touches only its own region of each:
 

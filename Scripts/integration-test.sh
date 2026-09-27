@@ -45,7 +45,7 @@ for _ in $(seq 1 30); do
   sleep 1
 done
 
-KEY="$HOME/.codex/codex-remote/keys/id_codex-remote"
+KEY="$HOME/.codex-remote/keys/id_codex-remote"
 [ -f "$KEY.pub" ] || { mkdir -p "$(dirname "$KEY")"; ssh-keygen -t ed25519 -N '' -C codex-remote -f "$KEY" >/dev/null; }
 docker exec -i "$NAME" bash -c \
   'mkdir -p /root/.ssh && cat > /root/.ssh/authorized_keys && chmod 600 /root/.ssh/authorized_keys' < "$KEY.pub"
@@ -69,7 +69,7 @@ docker exec "$NAME" bash -c '! curl -fsS -m 3 http://$(hostname -i):1456/healthz
   && pass "app-server is not exposed on the machine's public interface" \
   || fail "app-server is reachable off-loopback"
 
-LAUNCHER="$HOME/.codex/codex-remote/bin/codex-attach-$MACHINE"
+LAUNCHER="$HOME/.codex-remote/bin/codex-attach-$MACHINE"
 [ -x "$LAUNCHER" ] && pass "launcher generated" || fail "no launcher at $LAUNCHER"
 ! grep -qE '[0-9a-f]{64}' "$LAUNCHER" && pass "launcher holds no token literal" \
   || fail "launcher appears to contain a token"

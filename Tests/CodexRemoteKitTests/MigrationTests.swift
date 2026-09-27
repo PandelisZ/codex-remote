@@ -32,7 +32,7 @@ final class RegistryMigrationTests: XCTestCase {
           "health": "online",
           "localPort": 14560,
           "powerIntent": "up",
-          "privateKeyPath": "/Users/example/.codex/codex-remote/keys/id_codex-remote",
+          "privateKeyPath": "/Users/example/.codex-remote/keys/id_codex-remote",
           "remotePort": 1456,
           "sshHostAlias": "codex-remote-codex-eu",
           "sshPort": 22,

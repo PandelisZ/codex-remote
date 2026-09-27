@@ -8,8 +8,8 @@ import Foundation
 /// and `codex doctor` reports it as an unrecognised setting. So Codex Remote does not write into
 /// config.toml. Instead it owns three things next to it:
 ///
-///   * `~/.codex/codex-remote/machines.json` — the registry the menu bar and `codex-remote` read
-///   * `~/.codex/codex-remote/bin/codex-<alias>` — a launcher per machine that opens Codex on it
+///   * `~/.codex-remote/machines.json` — the registry the menu bar and `codex-remote` read
+///   * `~/.codex-remote/bin/codex-<alias>` — a launcher per machine that opens Codex on it
 ///   * `~/.ssh/config.d/codex-remote` — a host entry per machine, so `ssh codex-remote-<name>` works
 ///
 /// The bearer token is never written into any of those files; each launcher pulls it out
@@ -151,12 +151,12 @@ public enum CodexRegistrar {
 
         let script = """
         # Codex Remote shell integration — source this from ~/.zshrc or ~/.bashrc:
-        #   [ -f "$HOME/.codex/codex-remote/shell.sh" ] && . "$HOME/.codex/codex-remote/shell.sh"
+        #   [ -f "$HOME/.codex-remote/shell.sh" ] && . "$HOME/.codex-remote/shell.sh"
         #
         # Current machines:
         \(aliases.isEmpty ? "#   (none)" : aliases)
 
-        export PATH="$HOME/.codex/codex-remote/bin:$PATH"
+        export PATH="$HOME/.codex-remote/bin:$PATH"
 
         # Deliberately no `codex-remote` shell function here. One used to be defined, which
         # shadowed the CLI of the same name: after sourcing this, `codex-remote create` ran
@@ -169,24 +169,51 @@ public enum CodexRegistrar {
         try FileManager.default.setAttributes([.posixPermissions: 0o644], ofItemAtPath: url.path)
     }
 
+    static let shellProfiles = [".zshrc", ".bashrc", ".bash_profile", ".profile"]
+
     /// True once the user's shell profile sources our integration file.
+    ///
+    /// Matches the legacy path too. A profile still pointing at `~/.codex/codex-remote`
+    /// after the move sources a file that is no longer there, and reporting that as "not
+    /// installed" would add a second line beside the broken one.
     public static func shellIntegrationInstalled() -> Bool {
-        let profiles = [".zshrc", ".bashrc", ".bash_profile", ".profile"]
-        for profile in profiles {
+        for profile in shellProfiles {
             let url = Paths.home.appendingPathComponent(profile)
             if let text = try? String(contentsOf: url, encoding: .utf8),
-               text.contains(".codex/codex-remote/shell.sh") {
+               text.contains(".codex-remote/shell.sh") || text.contains(".codex/codex-remote/shell.sh") {
                 return true
             }
         }
         return false
     }
 
+    /// Rewrites a profile line left pointing at the pre-move location.
+    ///
+    /// The line lives in a marked block, so this replaces the block rather than appending
+    /// to it. Profiles with no Codex Remote line are untouched.
+    @discardableResult
+    public static func migrateShellIntegration() -> Bool {
+        var repaired = false
+        for profile in shellProfiles {
+            let url = Paths.home.appendingPathComponent(profile)
+            guard let text = try? String(contentsOf: url, encoding: .utf8),
+                  text.contains(".codex/codex-remote/shell.sh") else { continue }
+            do {
+                try installShellIntegration(profile: profile)
+                Log.shared.info("codex", "Repointed ~/\(profile) at ~/.codex-remote.")
+                repaired = true
+            } catch {
+                Log.shared.warn("codex", "Could not update ~/\(profile): \(error.localizedDescription)")
+            }
+        }
+        return repaired
+    }
+
     /// Adds the `source` line to the user's shell profile, inside a marked block.
     public static func installShellIntegration(profile: String = ".zshrc") throws {
         let url = Paths.home.appendingPathComponent(profile)
         try ManagedBlock.write(
-            body: "[ -f \"$HOME/.codex/codex-remote/shell.sh\" ] && . \"$HOME/.codex/codex-remote/shell.sh\"",
+            body: "[ -f \"$HOME/.codex-remote/shell.sh\" ] && . \"$HOME/.codex-remote/shell.sh\"",
             to: url,
             permissions: 0o644
         )
