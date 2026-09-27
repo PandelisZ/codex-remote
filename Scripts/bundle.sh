@@ -51,7 +51,9 @@ PLIST
 # state, where nothing re-signs it and its authenticity still rests on OpenTofu's published
 # checksums. The app finds it there, and downloads it itself if it is missing.
 echo "▸ opentofu"
-TOFU_DIR="${CODEX_HOME:-$HOME/.codex}/codex-remote/tofu/bin"
+# Must match Paths.codexRemoteHome, or the build installs tofu somewhere the app does not
+# look — and recreates the pre-0.4.0 directory under ~/.codex on every build.
+TOFU_DIR="${CODEX_REMOTE_HOME:-$HOME/.codex-remote}/tofu/bin"
 if [ -x "$TOFU_DIR/tofu" ]; then
   echo "  already installed: $("$TOFU_DIR/tofu" version | head -1)"
 elif "$ROOT/Scripts/fetch-opentofu.sh" "$TOFU_DIR" >/dev/null 2>&1; then
