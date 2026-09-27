@@ -1,8 +1,8 @@
 {
-  "version": "0.4.0",
-  "url": "https://github.com/PandelisZ/codex-remote/releases/download/v0.4.0/CodexRemote-0.4.0.zip",
-  "sha256": "4adf8d7bbce577dc421bd1374ca2cebdbe4896b0e1ac9016a2481ec377a2b859",
-  "notes": "Codex Remote now keeps its state in `~/.codex-remote`.\n\n**It used to live inside `~/.codex`, which belongs to Codex.** That meant `codex` could not clean up after itself without taking Codex Remote's state with it, and uninstalling Codex Remote could not remove its own directory without reaching into Codex's. Your machines, accounts, SSH keys and OpenTofu install move across on first launch \u2014 a move rather than a copy, so there is one directory afterwards and no question which is live. A shell profile that sourced the old `shell.sh` is repointed too.\n\nCodex's own files \u2014 `auth.json`, config, the desktop app's state \u2014 are still read from `~/.codex`, which is where they belong.\n\n**If you keep an older copy of Codex Remote running**, it will recreate `~/.codex/codex-remote` and write to it, and those writes are not picked up. Quit it before relying on this version.\n\n**The site no longer pins a version.** The download button linked at a filename that 404s the moment a release ships; it and the version on the cover now resolve from [latest.json](https://codexremote.io/latest.json), the same feed the app polls.",
-  "publishedAt": "2026-09-27T23:44:01Z",
+  "version": "0.4.1",
+  "url": "https://github.com/PandelisZ/codex-remote/releases/download/v0.4.1/CodexRemote-0.4.1.zip",
+  "sha256": "e50c6abb9051a224806e0f491932b097f816a66222e29e4bd4716cee2bf2c02d",
+  "notes": "Fixes the packaging bug in 0.4.0.\n\n`Scripts/bundle.sh` still installed OpenTofu to `~/.codex/codex-remote/tofu`, the pre-0.4.0 location. On a machine that builds from source that recreated the directory 0.4.0 had just migrated away from, and put the bundled OpenTofu somewhere the app no longer looks.\n\nOnly affects building from source \u2014 installed copies fetch and verify OpenTofu themselves on first use \u2014 but it meant the 0.4.0 migration did not stay done.",
+  "publishedAt": "2026-09-27T23:48:06Z",
   "minimumSystemVersion": "15.0"
 }
