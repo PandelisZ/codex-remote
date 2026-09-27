@@ -278,7 +278,7 @@ figcaption b { font-weight: 600; color: var(--ink); }
       <div class="edition">Operator&rsquo;s Guide</div>
     </div>
     <div class="plate">
-      VERSION 0.2.0<br>
+      <span data-version hidden></span>
       MACOS 15 OR LATER<br>
       APPLE SILICON / INTEL<br>
       MIT &middot; OPEN SOURCE
@@ -313,8 +313,9 @@ figcaption b { font-weight: 600; color: var(--ink); }
           <div>
             <div class="what">Or download it</div>
             <div class="note" style="margin-top:7px">
-              <a class="dl" href="https://github.com/PandelisZ/codex-remote/releases/latest/download/CodexRemote-0.2.0.zip">
-                Download Codex Remote 0.2.0
+              <a class="dl" data-download
+                 href="https://github.com/PandelisZ/codex-remote/releases/latest">
+                Download the latest release
               </a>
               <span style="display:block;margin-top:7px">
                 Unzip, drag to Applications, then clear the quarantine flag as below. The app
@@ -632,7 +633,7 @@ figcaption b { font-weight: 600; color: var(--ink); }
     <div class="stamp">
       CODEX REMOTE<br>
       OPERATOR&rsquo;S GUIDE<br>
-      VERSION 0.2.0<br>
+      <span data-version hidden></span>
       MIT LICENCE<br>
       CODEXREMOTE.IO
     </div>
@@ -640,6 +641,35 @@ figcaption b { font-weight: 600; color: var(--ink); }
 </footer>
 
 <script>
+// The version lives in one place: the feed the app itself polls. Nothing here is pinned,
+// so a release cannot leave the page advertising a build that is no longer current.
+//
+// Without this — no JS, or the feed unreachable — the download link still points at the
+// releases page, which always resolves. The direct link is the upgrade, not the baseline:
+// `releases/latest/download/<file>` needs the exact filename, so hardcoding one is how the
+// button ends up 404ing the moment a version ships.
+(async () => {
+  try {
+    const response = await fetch('/latest.json', { cache: 'no-cache' });
+    if (!response.ok) return;
+    const { version, url } = await response.json();
+    if (!version) return;
+
+    for (const slot of document.querySelectorAll('[data-version]')) {
+      slot.textContent = `VERSION ${version}`;
+      slot.after(document.createElement('br'));
+      slot.hidden = false;
+    }
+    const download = document.querySelector('[data-download]');
+    if (download && url) {
+      download.href = url;
+      download.textContent = `Download ${version}`;
+    }
+  } catch {
+    // Leave the markup as shipped; it is already correct, just less specific.
+  }
+})();
+
 for (const button of document.querySelectorAll('[data-copy]')) {
   button.addEventListener('click', async () => {
     const target = document.querySelector(button.dataset.copy);
