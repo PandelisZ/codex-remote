@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Codex Remote — cloud machines for Codex and Claude Code</title>
+<meta name="description" content="A macOS menu bar app that provisions a cloud machine and wires it up as a remote Codex or Claude Code agent. Open source. Not affiliated with OpenAI.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>▤</text></svg>">
+
+<meta property="og:title" content="Codex Remote">
+<meta property="og:description" content="Give it a provider token. It builds the machine, installs the agent, and the machine shows up where you already work.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://codexremote.io">
+
+<style>
+:root {
+  color-scheme: light dark;
+
+  --bg: #fbfaf8;
+  --surface: #ffffff;
+  --surface-2: #f4f2ee;
+  --text: #1a1916;
+  --text-dim: #5d5a52;
+  --text-faint: #8a867c;
+  --line: #e5e1d9;
+  --accent: #b3421d;
+  --accent-soft: #f6e8e1;
+  --code-bg: #24221e;
+  --code-text: #ece7dd;
+  --ok: #3f7d3f;
+
+  --radius: 14px;
+  --radius-sm: 9px;
+  --maxw: 1080px;
+  --gutter: 16px;
+
+  --sans: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, system-ui, sans-serif;
+  --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #131211;
+    --surface: #1c1b19;
+    --surface-2: #232220;
+    --text: #efece6;
+    --text-dim: #aba69c;
+    --text-faint: #7d7870;
+    --line: #2e2c29;
+    --accent: #e0703f;
+    --accent-soft: #2a201a;
+    --code-bg: #0e0d0c;
+    --code-text: #e6e1d7;
+    --ok: #7bb87b;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #131211;
+  --surface: #1c1b19;
+  --surface-2: #232220;
+  --text: #efece6;
+  --text-dim: #aba69c;
+  --text-faint: #7d7870;
+  --line: #2e2c29;
+  --accent: #e0703f;
+  --accent-soft: #2a201a;
+  --code-bg: #0e0d0c;
+  --code-text: #e6e1d7;
+  --ok: #7bb87b;
+}
+
+* { box-sizing: border-box; }
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--sans);
+  font-size: 17px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+
+.wrap {
+  max-width: var(--maxw);
+  margin: 0 auto;
+  padding: 0 var(--gutter);
+}
+
+a { color: var(--accent); text-decoration-thickness: 1px; text-underline-offset: 2px; }
+
+h1, h2, h3 { line-height: 1.15; letter-spacing: -0.02em; margin: 0; }
+
+code, kbd { font-family: var(--mono); font-size: 0.9em; }
+
+/* ---------- top bar ---------- */
+
+header {
+  position: sticky; top: 0; z-index: 50;
+  background: color-mix(in srgb, var(--bg) 88%, transparent);
+  backdrop-filter: saturate(160%) blur(12px);
+  border-bottom: 1px solid var(--line);
+}
+.bar { display: flex; align-items: center; gap: 14px; height: 58px; }
+.brand { display: flex; align-items: center; gap: 9px; font-weight: 640; letter-spacing: -0.02em; }
+.brand .mark {
+  width: 25px; height: 25px; border-radius: 7px;
+  background: var(--accent); color: #fff;
+  display: grid; place-items: center; font-size: 14px; flex: none;
+}
+.bar nav { margin-left: auto; display: flex; align-items: center; gap: 20px; }
+.bar nav a { color: var(--text-dim); text-decoration: none; font-size: 15px; }
+.bar nav a:hover { color: var(--text); }
+@media (max-width: 640px) { .bar nav a.hide-sm { display: none; } }
+
+/* ---------- buttons ---------- */
+
+.btn {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 11px 18px; border-radius: var(--radius-sm);
+  font-size: 15px; font-weight: 560; text-decoration: none;
+  border: 1px solid transparent; cursor: pointer; white-space: nowrap;
+}
+.btn-primary { background: var(--accent); color: #fff; }
+.btn-primary:hover { filter: brightness(1.08); }
+.btn-ghost { background: var(--surface); color: var(--text); border-color: var(--line); }
+.btn-ghost:hover { background: var(--surface-2); }
+.btn-sm { padding: 8px 14px; font-size: 14px; }
+
+/* ---------- hero ---------- */
+
+.hero { padding: 76px 0 8px; }
+.eyebrow {
+  display: inline-flex; align-items: center; gap: 7px;
+  font-size: 13px; color: var(--accent); background: var(--accent-soft);
+  border-radius: 999px; padding: 5px 12px; font-weight: 560;
+  margin-bottom: 20px;
+}
+.hero h1 { font-size: clamp(34px, 6.2vw, 58px); font-weight: 680; max-width: 15ch; }
+.hero .lede {
+  font-size: clamp(17px, 2.2vw, 20px); color: var(--text-dim);
+  max-width: 56ch; margin: 20px 0 0;
+}
+.cta { display: flex; flex-wrap: wrap; gap: 11px; align-items: center; margin-top: 30px; }
+.cta .note { font-size: 13.5px; color: var(--text-faint); }
+
+/* ---------- pain ---------- */
+
+.section { padding: 78px 0; }
+.section-head { max-width: 62ch; margin-bottom: 36px; }
+.section-head h2 { font-size: clamp(26px, 3.6vw, 34px); font-weight: 660; }
+.section-head p { color: var(--text-dim); margin: 13px 0 0; }
+
+.pain {
+  display: grid; gap: 1px; background: var(--line);
+  border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden;
+  grid-template-columns: 1fr 1fr;
+}
+@media (max-width: 760px) { .pain { grid-template-columns: 1fr; } }
+.pain > div { background: var(--surface); padding: 26px 24px; }
+.pain h3 { font-size: 16px; font-weight: 620; margin-bottom: 9px; display: flex; gap: 9px; align-items: baseline; }
+.pain p { margin: 0; color: var(--text-dim); font-size: 15px; }
+.pain .before h3::before { content: "✗"; color: var(--accent); font-weight: 700; }
+.pain .after h3::before { content: "✓"; color: var(--ok); font-weight: 700; }
+
+/* ---------- demo ---------- */
+
+.demo-frame {
+  border: 1px solid var(--line); border-radius: var(--radius);
+  background: var(--surface); overflow: hidden;
+}
+.demo-frame video, .demo-frame img { display: block; width: 100%; height: auto; }
+.demo-chrome {
+  display: flex; align-items: center; gap: 7px;
+  padding: 11px 14px; border-bottom: 1px solid var(--line); background: var(--surface-2);
+}
+.dot { width: 11px; height: 11px; border-radius: 50%; background: var(--line); }
+.demo-chrome span { margin-left: 8px; font-size: 13px; color: var(--text-faint); font-family: var(--mono); }
+.caption { font-size: 14px; color: var(--text-faint); margin-top: 13px; text-align: center; }
+
+/* ---------- steps ---------- */
+
+.steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
+@media (max-width: 860px) { .steps { grid-template-columns: 1fr; } }
+.step {
+  background: var(--surface); border: 1px solid var(--line);
+  border-radius: var(--radius); padding: 24px;
+}
+.step .n {
+  width: 27px; height: 27px; border-radius: 8px; background: var(--accent-soft);
+  color: var(--accent); display: grid; place-items: center;
+  font-size: 14px; font-weight: 680; margin-bottom: 14px;
+}
+.step h3 { font-size: 16.5px; font-weight: 620; margin-bottom: 8px; }
+.step p { margin: 0; color: var(--text-dim); font-size: 15px; }
+
+/* ---------- install ---------- */
+
+.install { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+@media (max-width: 760px) { .install { grid-template-columns: 1fr; } }
+.card {
+  background: var(--surface); border: 1px solid var(--line);
+  border-radius: var(--radius); padding: 26px;
+}
+.card h3 { font-size: 17px; font-weight: 620; margin-bottom: 6px; }
+.card > p { color: var(--text-dim); font-size: 14.5px; margin: 0 0 18px; }
+
+.cmd {
+  display: flex; align-items: center; gap: 10px;
+  background: var(--code-bg); color: var(--code-text);
+  border-radius: var(--radius-sm); padding: 13px 14px;
+  font-family: var(--mono); font-size: 13.5px;
+  overflow-x: auto;
+}
+.cmd code { color: inherit; white-space: pre; }
+.cmd .prompt { color: var(--text-faint); user-select: none; flex: none; }
+.copy {
+  margin-left: auto; flex: none; background: transparent; cursor: pointer;
+  border: 1px solid #ffffff2a; color: var(--code-text);
+  border-radius: 7px; padding: 4px 9px; font-size: 12px; font-family: var(--sans);
+}
+.copy:hover { background: #ffffff14; }
+.reqs { list-style: none; padding: 0; margin: 18px 0 0; font-size: 14px; color: var(--text-faint); }
+.reqs li { padding: 3px 0; }
+
+/* ---------- disclaimer ---------- */
+
+.disclaimer {
+  border: 1px solid var(--line); border-left: 3px solid var(--accent);
+  background: var(--surface); border-radius: var(--radius-sm);
+  padding: 20px 22px; font-size: 14.5px; color: var(--text-dim);
+}
+.disclaimer strong { color: var(--text); }
+
+footer {
+  border-top: 1px solid var(--line); padding: 34px 0 50px;
+  font-size: 14px; color: var(--text-faint);
+}
+.foot { display: flex; flex-wrap: wrap; gap: 16px; align-items: center; }
+.foot nav { margin-left: auto; display: flex; gap: 18px; flex-wrap: wrap; }
+.foot a { color: var(--text-dim); text-decoration: none; }
+.foot a:hover { color: var(--text); }
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap bar">
+    <div class="brand"><span class="mark">▤</span> Codex Remote</div>
+    <nav>
+      <a href="#why" class="hide-sm">Why</a>
+      <a href="#demo" class="hide-sm">Demo</a>
+      <a href="#install">Install</a>
+      <a href="https://github.com/PandelisZ/codex-remote">GitHub</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+
+<section class="wrap hero">
+  <div class="eyebrow">Open source · macOS menu bar app</div>
+  <h1>Your coding agent, on a machine that isn't your laptop.</h1>
+  <p class="lede">
+    Give Codex Remote a cloud provider token. It builds the server, installs Codex and
+    Claude&nbsp;Code, brings your MCP servers along, and the machine turns up where you
+    already work — no SSH config to hand-edit, nothing to keep alive in a terminal.
+  </p>
+  <div class="cta">
+    <a class="btn btn-primary" href="#install">Download for macOS</a>
+    <a class="btn btn-ghost" href="https://github.com/PandelisZ/codex-remote">View source</a>
+    <span class="note">macOS 15+ · Apple silicon &amp; Intel</span>
+  </div>
+</section>
+
+<section class="wrap section" id="why">
+  <div class="section-head">
+    <h2>Renting a box is easy. Making an agent live on it isn't.</h2>
+    <p>
+      Every remote-agent setup runs into the same handful of chores. None of them are hard.
+      All of them are fiddly, and you do them again for every machine.
+    </p>
+  </div>
+
+  <div class="pain">
+    <div class="before">
+      <h3>Hand-edit <code>~/.ssh/config</code></h3>
+      <p>And find out the hard way that an <code>Include</code> doesn't count — Codex parses
+         that file with a library that never expands them, so your host is invisible.</p>
+    </div>
+    <div class="after">
+      <h3>The host block is written for you</h3>
+      <p>Inline, above your <code>Host *</code>, inside markers it can cleanly remove again.
+         Codex finds it on next launch.</p>
+    </div>
+
+    <div class="before">
+      <h3>Install and authenticate on every box</h3>
+      <p>Node, the CLI, a login, the first-run wizard that blocks forever under a service
+         manager because nobody is there to pick a theme.</p>
+    </div>
+    <div class="after">
+      <h3>Bootstrapped and signed in</h3>
+      <p>Agents installed, wizards pre-answered, Claude&nbsp;Code under its own non-root
+         account with its own login — never a copy of your Mac's.</p>
+    </div>
+
+    <div class="before">
+      <h3>Keep something running in a terminal</h3>
+      <p>Close the lid, lose the session. Reboot the box and quietly discover the agent
+         never came back.</p>
+    </div>
+    <div class="after">
+      <h3>systemd units, enabled at boot</h3>
+      <p>Everything it installs comes back after a stop/start. One prefix, so
+         <code>systemctl status 'codex-remote-*'</code> shows the lot.</p>
+    </div>
+
+    <div class="before">
+      <h3>Your MCP servers stay behind</h3>
+      <p>The remote agent is a stranger to every tool you've configured locally.</p>
+    </div>
+    <div class="after">
+      <h3>They come with it</h3>
+      <p>Portable servers are carried over; ones that only exist on your Mac are left
+         behind on purpose, and it tells you which and why.</p>
+    </div>
+  </div>
+</section>
+
+<section class="wrap section" id="demo">
+  <div class="section-head">
+    <h2>Click one button. Get a machine.</h2>
+    <p>From an empty menu bar to a running agent you can hand work to.</p>
+  </div>
+
+  <div class="demo-frame">
+    <div class="demo-chrome">
+      <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+      <span>Codex Remote</span>
+    </div>
+    <!-- DEMO: replace poster/source with a new recording; keep the attributes. -->
+    <video
+      src="demo.mp4"
+      poster="demo-poster.png"
+      controls playsinline muted loop preload="metadata"
+      aria-label="Screen recording: creating a machine in Codex Remote and using it from Codex">
+      Your browser can't play this video —
+      <a href="demo.mp4">download it instead</a>.
+    </video>
+  </div>
+  <p class="caption">Recorded end to end: provision, bootstrap, and the machine appearing in Codex.</p>
+</section>
+
+<section class="wrap section">
+  <div class="section-head">
+    <h2>What happens when you add a machine</h2>
+  </div>
+  <div class="steps">
+    <div class="step">
+      <div class="n">1</div>
+      <h3>Create</h3>
+      <p>OpenTofu applies a small per-cloud module and makes one server with your key on it.
+         Each machine gets its own state, so one can never disturb another.</p>
+    </div>
+    <div class="step">
+      <div class="n">2</div>
+      <h3>Bootstrap</h3>
+      <p>Base packages, the Codex CLI, Claude&nbsp;Code under its own account, your MCP
+         servers, and a systemd unit for each — all over SSH.</p>
+    </div>
+    <div class="step">
+      <div class="n">3</div>
+      <h3>Connect</h3>
+      <p>Codex finds the host in your SSH config and starts its app-server there itself.
+         Claude&nbsp;Code dials out to your account. Pair it to reach the box from your phone.</p>
+    </div>
+  </div>
+</section>
+
+<section class="wrap section" id="install">
+  <div class="section-head">
+    <h2>Install</h2>
+    <p>Bring your own cloud account — Hetzner, AWS, DigitalOcean, Linode, Vultr or Scaleway.
+       You pay them directly; Codex Remote has no service in the middle.</p>
+  </div>
+
+  <div class="install">
+    <div class="card">
+      <h3>Homebrew</h3>
+      <p>The tap keeps it updated with <code>brew upgrade</code>.</p>
+      <div class="cmd">
+        <span class="prompt">$</span>
+        <code id="brew-cmd">brew install --cask pandelisz/tap/codex-remote</code>
+        <button class="copy" data-copy="#brew-cmd">Copy</button>
+      </div>
+      <ul class="reqs">
+        <li>macOS 15 (Sequoia) or later</li>
+        <li>Apple silicon or Intel</li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <h3>Direct download</h3>
+      <p>A notarised build is attached to every release.</p>
+      <div class="cta" style="margin-top:0">
+        <a class="btn btn-primary btn-sm" href="https://github.com/PandelisZ/codex-remote/releases/latest">
+          Download the latest release
+        </a>
+      </div>
+      <ul class="reqs">
+        <li>Unzip and drag to Applications</li>
+        <li>It lives in the menu bar, not the Dock</li>
+      </ul>
+    </div>
+  </div>
+
+  <div style="margin-top:18px" class="card">
+    <h3>Prefer the terminal?</h3>
+    <p>Everything the menu bar does is scriptable, and vice versa.</p>
+    <div class="cmd">
+      <span class="prompt">$</span>
+      <code id="cli-cmd">codex-remote create --account hetzner --name my-box</code>
+      <button class="copy" data-copy="#cli-cmd">Copy</button>
+    </div>
+  </div>
+</section>
+
+<section class="wrap section" style="padding-top:0">
+  <div class="disclaimer">
+    <strong>Not affiliated with OpenAI.</strong>
+    Codex Remote is an independent, open-source project. It is not made, endorsed, sponsored
+    or supported by OpenAI or by Anthropic. “Codex”, “ChatGPT”, “Claude” and “Claude Code”
+    are trademarks of their respective owners and are used here only to describe what this
+    tool interoperates with. You bring your own accounts and your own cloud provider, and
+    your credentials stay on your machine and the machines you create.
+  </div>
+</section>
+
+</main>
+
+<footer>
+  <div class="wrap foot">
+    <div class="brand"><span class="mark">▤</span> Codex Remote</div>
+    <nav>
+      <a href="https://github.com/PandelisZ/codex-remote">GitHub</a>
+      <a href="https://github.com/PandelisZ/codex-remote/blob/main/docs/agents.md">Docs</a>
+      <a href="https://github.com/PandelisZ/codex-remote/issues">Issues</a>
+      <a href="https://github.com/PandelisZ/codex-remote/releases">Releases</a>
+    </nav>
+  </div>
+</footer>
+
+<script>
+// Copy buttons. Clipboard access can be refused (insecure context, permissions policy),
+// so the button says what actually happened rather than always claiming success.
+for (const button of document.querySelectorAll('.copy')) {
+  button.addEventListener('click', async () => {
+    const text = document.querySelector(button.dataset.copy)?.textContent ?? '';
+    const done = (label) => {
+      const previous = button.textContent;
+      button.textContent = label;
+      setTimeout(() => { button.textContent = previous; }, 1400);
+    };
+    try {
+      await navigator.clipboard.writeText(text);
+      done('Copied');
+    } catch {
+      // Select it instead, so there is still a one-gesture way to take the command.
+      const node = document.querySelector(button.dataset.copy);
+      const range = document.createRange();
+      range.selectNodeContents(node);
+      const selection = getSelection();
+      selection.removeAllRanges();
+      selection.addRange(range);
+      done('Select & copy');
+    }
+  });
+}
+</script>
+
+</body>
+</html>
