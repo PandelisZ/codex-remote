@@ -66,8 +66,8 @@ must not depend on a GitHub fetch.
 | `provider` | yes | `{ "source": "hetznercloud/hcloud", "version": "~> 1.48", "body": "" }`. `body` is the inside of the `provider "x" { … }` block; usually empty, because credentials come from the environment and stay out of the state file. |
 | `credentials` | yes | What to ask the user for. |
 | `environment` | yes | Environment the OpenTofu provider reads, as templates. |
-| `machineHCL` | yes | HCL creating exactly one machine, plus its outputs. |
-| `catalogHCL` | no | Data sources and outputs only, to fill the New machine form. Must create nothing. |
+| `machineHCL` | yes | HCL creating exactly one machine, plus its outputs. Inline string, or `{url, sha256}` — see below. |
+| `catalogHCL` | no | Data sources and outputs only, to fill the New machine form. Must create nothing. Same two forms. |
 | `catalog` | no | How to read that run's outputs. |
 | `fallback` | yes | Lists used when there is no catalog, or it fails. |
 | `extraVariables` | no | Extra `variable` blocks this module needs, and their values. |
@@ -83,6 +83,45 @@ must not depend on a GitHub fetch.
   "help": "Console → Security → API tokens, Read & Write."
 }
 ```
+
+### Inline or remote HCL
+
+A bare string is inline HCL, which keeps a small provider readable in one file:
+
+```jsonc
+"machineHCL": "resource \"hcloud_server\" \"machine\" { ... }"
+```
+
+Anything real is easier to read, diff and reuse as its own `.tf` file, so a source can
+instead be a URL — and then it **must** carry a SHA-256:
+
+```jsonc
+"machineHCL": {
+  "url": "https://raw.githubusercontent.com/me/registry/main/aws/main.tf",
+  "sha256": "9f2c…64 hex chars"
+}
+```
+
+The hash is not bureaucracy. This HCL runs against your cloud credentials. Without a hash,
+whoever serves that URL — or whoever takes over that domain in two years — can change what
+gets applied, silently, long after the registry was reviewed. The hash pins the file to the
+bytes that were reviewed, which is what makes it safe for a registry to point at a file it
+does not itself host. A remote source with no `sha256`, or a malformed one, is refused.
+
+Generate it with:
+
+```bash
+shasum -a 256 main.tf
+```
+
+### Why JSON and not YAML
+
+YAML is nicer for multi-line text, and multi-line HCL inside JSON is genuinely unpleasant —
+that was the strongest argument for it. Remote sources remove that argument: the HCL lives
+in a real `.tf` file where it belongs, and what stays in the registry is short. JSON also
+needs no parser beyond the one already in the app, and a registry is a security boundary
+where "no extra dependency" is worth something. If you find yourself wanting YAML, that is
+usually a sign the HCL should be a separate file.
 
 ### Templates
 

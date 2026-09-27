@@ -294,7 +294,7 @@ extension ClaudeLoginTests {
 /// standing between a malformed entry and a half-created server.
 final class ProviderRegistryDocumentTests: XCTestCase {
     private func entry(id: String = "acme",
-                       machineHCL: String = "output \"instance_id\" {}\noutput \"public_ipv4\" {}",
+                       machineHCL: ProviderRegistryDocument.Source = .inline("output \"instance_id\" {}\noutput \"public_ipv4\" {}"),
                        version: String = "~> 1.0") -> ProviderRegistryDocument.Entry {
         ProviderRegistryDocument.Entry(
             id: id, displayName: "Acme", blurb: "",
@@ -327,7 +327,7 @@ final class ProviderRegistryDocumentTests: XCTestCase {
     /// Without these outputs a machine comes up with no address to reach it at, and the
     /// failure would otherwise surface long after the server was billed for.
     func testHCLMissingTheAddressOutputIsRefused() {
-        let broken = entry(machineHCL: "output \"instance_id\" { value = 1 }")
+        let broken = entry(machineHCL: .inline("output \"instance_id\" { value = 1 }"))
         XCTAssertThrowsError(try document([broken]).validated()) { error in
             guard case .entry(_, let problem)? = error as? ProviderRegistryDocument.Invalid else {
                 return XCTFail("expected an entry problem")
@@ -383,4 +383,42 @@ final class ProviderRegistryDocumentTests: XCTestCase {
         XCTAssertNoThrow(try document.validated())
         XCTAssertTrue(document.providers.contains { $0.id == "hetzner" })
     }
+}
+
+extension ProviderRegistryDocumentTests {
+    /// Small providers stay readable as a bare string.
+    func testInlineHCLIsJustAString() throws {
+        let decoded = try JSONDecoder().decode(ProviderRegistryDocument.Source.self,
+                                               from: data("\"resource \\\"x\\\" {}\""))
+        XCTAssertEqual(decoded, .inline("resource \"x\" {}"))
+    }
+
+    /// Anything real is easier to read and diff as its own .tf file.
+    func testRemoteHCLCarriesItsURLAndHash() throws {
+        let sha = String(repeating: "a", count: 64)
+        let decoded = try JSONDecoder().decode(
+            ProviderRegistryDocument.Source.self,
+            from: data("{\"url\":\"https://example.com/main.tf\",\"sha256\":\"\(sha)\"}"))
+        XCTAssertEqual(decoded, .remote(url: "https://example.com/main.tf", sha256: sha))
+    }
+
+    /// The hash is the whole security story for remote HCL: without it, whoever serves
+    /// that URL — or takes over the domain later — can change what OpenTofu applies to the
+    /// user's cloud account, silently and after the registry was reviewed.
+    func testRemoteHCLWithoutAHashIsRefused() {
+        XCTAssertThrowsError(try JSONDecoder().decode(
+            ProviderRegistryDocument.Source.self,
+            from: data("{\"url\":\"https://example.com/main.tf\"}")))
+    }
+
+    func testAMalformedHashIsRefused() {
+        for bad in ["\"abc\"", "\"\(String(repeating: "z", count: 64))\""] {
+            XCTAssertThrowsError(try JSONDecoder().decode(
+                ProviderRegistryDocument.Source.self,
+                from: data("{\"url\":\"https://e.com/m.tf\",\"sha256\":\(bad)}")),
+                "should refuse sha256 \(bad)")
+        }
+    }
+
+    private func data(_ json: String) -> Data { Data(json.utf8) }
 }

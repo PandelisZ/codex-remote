@@ -63,10 +63,11 @@ public struct ProviderRegistryDocument: Codable, Sendable, Equatable {
         public let environment: [String: String]
 
         /// HCL that creates exactly one machine, plus the outputs listed in `docs/registry.md`.
-        public let machineHCL: String
+        /// Either inline text, or a URL with a SHA-256 to fetch it from.
+        public let machineHCL: Source
         /// Optional HCL of data sources and outputs only, used to fill the New machine
         /// form. It must create nothing.
-        public let catalogHCL: String?
+        public let catalogHCL: Source?
         public let catalog: CatalogMapping?
         /// Used when there is no catalog, or the catalog run fails.
         public let fallback: Capabilities
@@ -76,7 +77,7 @@ public struct ProviderRegistryDocument: Codable, Sendable, Equatable {
                     sshUser: String = "root", managesSSHKey: Bool = true,
                     supportsPause: Bool = true, provider: ProviderBlock,
                     credentials: [Credential], environment: [String: String],
-                    machineHCL: String, catalogHCL: String? = nil,
+                    machineHCL: Source, catalogHCL: Source? = nil,
                     catalog: CatalogMapping? = nil, fallback: Capabilities,
                     extraVariables: ExtraVariables? = nil) {
             self.id = id
@@ -108,12 +109,46 @@ public struct ProviderRegistryDocument: Codable, Sendable, Equatable {
             provider = try c.decode(ProviderBlock.self, forKey: .provider)
             credentials = try c.decodeIfPresent([Credential].self, forKey: .credentials) ?? []
             environment = try c.decodeIfPresent([String: String].self, forKey: .environment) ?? [:]
-            machineHCL = try c.decode(String.self, forKey: .machineHCL)
-            catalogHCL = try c.decodeIfPresent(String.self, forKey: .catalogHCL)
+            machineHCL = try c.decode(Source.self, forKey: .machineHCL)
+            catalogHCL = try c.decodeIfPresent(Source.self, forKey: .catalogHCL)
             catalog = try c.decodeIfPresent(CatalogMapping.self, forKey: .catalog)
             fallback = try c.decode(Capabilities.self, forKey: .fallback)
             extraVariables = try c.decodeIfPresent(ExtraVariables.self, forKey: .extraVariables)
         }
+    }
+
+    /// HCL, either written into the registry or fetched from a URL.
+    ///
+    /// Inline is fine for something small. Anything real is easier to read, diff and reuse
+    /// as its own `.tf` file, and JSON is a poor host for a multi-line language.
+    ///
+    /// A remote source **must** carry a SHA-256. That is not bureaucracy: this HCL runs
+    /// against the user's cloud credentials, and without a hash whoever serves that URL —
+    /// or anyone who takes over the domain later — can change what gets applied, silently
+    /// and after the registry was reviewed. The hash pins it to the bytes that were
+    /// reviewed, so a registry can safely point at a file it does not host.
+    public enum Source: Sendable, Equatable {
+        case inline(String)
+        case remote(url: String, sha256: String)
+
+        public var inlineText: String? {
+            if case .inline(let text) = self { return text }
+            return nil
+        }
+
+        /// Text to validate against, for the checks that can run without fetching.
+        var reviewableText: String {
+            switch self {
+            case .inline(let text): return text
+            case .remote(let url, _): return url
+            }
+        }
+    }
+
+
+    public struct SourceCodingError: LocalizedError {
+        public let detail: String
+        public var errorDescription: String? { detail }
     }
 
     public struct ProviderBlock: Codable, Sendable, Equatable {
@@ -242,6 +277,41 @@ public struct ProviderRegistryDocument: Codable, Sendable, Equatable {
         }
     }
 
+}
+
+extension ProviderRegistryDocument.Source: Codable {
+    private enum Keys: String, CodingKey { case url, sha256 }
+
+    public init(from decoder: Decoder) throws {
+        // A bare string is inline HCL, which keeps small providers readable.
+        if let single = try? decoder.singleValueContainer(), let text = try? single.decode(String.self) {
+            self = .inline(text)
+            return
+        }
+        let container = try decoder.container(keyedBy: Keys.self)
+        let url = try container.decode(String.self, forKey: .url)
+        guard let sha = try container.decodeIfPresent(String.self, forKey: .sha256),
+              sha.count == 64, sha.allSatisfy(\.isHexDigit) else {
+            throw ProviderRegistryDocument.SourceCodingError(
+                detail: "`\(url)` has no valid sha256. Remote HCL runs against your cloud credentials, so it is pinned to the bytes that were reviewed — without a hash, whoever serves that URL can change what gets applied.")
+        }
+        self = .remote(url: url, sha256: sha.lowercased())
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        switch self {
+        case .inline(let text):
+            var container = encoder.singleValueContainer()
+            try container.encode(text)
+        case .remote(let url, let sha):
+            var container = encoder.container(keyedBy: Keys.self)
+            try container.encode(url, forKey: .url)
+            try container.encode(sha, forKey: .sha256)
+        }
+    }
+}
+
+extension ProviderRegistryDocument {
     // MARK: - Validation
 
     public enum Invalid: LocalizedError, Equatable {
@@ -287,12 +357,15 @@ public struct ProviderRegistryDocument: Codable, Sendable, Equatable {
             if entry.provider.version.isEmpty {
                 throw Invalid.entry(id: entry.id, problem: "the provider version is unpinned; pin it so a machine built today matches one built next month")
             }
-            if entry.machineHCL.isEmpty {
+            if entry.machineHCL.reviewableText.isEmpty {
                 throw Invalid.entry(id: entry.id, problem: "no machineHCL, so it cannot create anything")
             }
             // Outputs are the contract between a module and the rest of the app; without
             // them a machine would come up with no address to reach it at.
-            for required in ["instance_id", "public_ipv4"] where !entry.machineHCL.contains(required) {
+            // Only checkable for inline HCL; a remote file is pinned by its hash instead
+            // and verified when it is fetched.
+            for required in ["instance_id", "public_ipv4"]
+            where entry.machineHCL.inlineText.map({ !$0.contains(required) }) == true {
                 throw Invalid.entry(id: entry.id,
                                     problem: "machineHCL declares no `\(required)` output (see docs/registry.md)")
             }
