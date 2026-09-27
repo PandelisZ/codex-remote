@@ -30,6 +30,37 @@ bar when you're not using it.
 See [docs/agents.md](docs/agents.md) for how the two differ — including why Claude Code
 signs in on the machine rather than borrowing this Mac's login.
 
+## Bring your project with you
+
+```bash
+codex-remote push my-box          # the current directory
+```
+
+Clones when the work is pushed, copies when it is not, and in both cases sends the
+untracked `.env` files a clone cannot carry — which is why a clone on its own always leaves
+you with a project that does not run. Skips `node_modules` rather than shipping macOS
+native modules to Linux. [docs/projects.md](docs/projects.md)
+
+## Let an agent build its own machine
+
+```bash
+claude mcp add codex-remote -- codex-remote mcp serve
+```
+
+The agent usually knows what it needs better than you do while you are filling in a form.
+Connected, it can read your machines; with **Agent access** enabled in Settings it can
+create them, run commands on them and sync projects to them. Destroying has its own switch,
+because creating the wrong machine costs pence and deleting the right one loses work.
+[docs/mcp.md](docs/mcp.md)
+
+## Add a cloud without waiting for a release
+
+The provider catalogue is a JSON file fetched at runtime from
+[codexremote.io/registry.json](https://codexremote.io/registry.json) — a cloud is some
+OpenTofu HCL, the environment its credentials map onto, and the lists that fill the form.
+Point Codex Remote at your own registry for your own providers, including a homelab.
+[docs/registry.md](docs/registry.md)
+
 OpenTofu ships inside the app — there is nothing to install — and it is why the provider
 list is a list of data files rather than a list of hand-written API clients.
 
