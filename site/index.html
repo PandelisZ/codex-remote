@@ -501,13 +501,14 @@ footer { border-top: 1px solid var(--line); padding-block: 30px 48px; }
 
     <div class="way">
       <h3>Direct download</h3>
-      <p>Attached to every release. Ad-hoc signed, not notarised — macOS asks the first time.</p>
+      <p>Ad-hoc signed, not notarised. macOS calls a downloaded copy &ldquo;damaged&rdquo; until the
+         quarantine flag is removed — Homebrew does that for you.</p>
       <div class="actions" style="display:flex;gap:10px;flex-wrap:wrap">
         <a class="btn btn-solid" href="https://github.com/PandelisZ/codex-remote/releases/latest">Latest release</a>
       </div>
       <ul>
         <li>Unzip, drag to Applications</li>
-        <li>First launch: right-click → Open</li>
+        <li><code>xattr -dr com.apple.quarantine /Applications/CodexRemote.app</code></li>
         <li>Lives in the menu bar, not the Dock</li>
       </ul>
     </div>

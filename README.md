@@ -7,8 +7,16 @@ brew install --cask pandelisz/tap/codex-remote
 ```
 
 Or [download the latest release](https://github.com/PandelisZ/codex-remote/releases/latest).
-macOS 15+, Apple silicon or Intel. The build is ad-hoc signed rather than notarised, so the
-first launch needs right-click → Open. It lives in the menu bar, not the Dock.
+macOS 15+, Apple silicon or Intel. It lives in the menu bar, not the Dock.
+
+The build is ad-hoc signed rather than notarised, so macOS refuses a downloaded copy with
+*"CodexRemote is damaged and can't be opened"*. That is the quarantine flag, not a corrupt
+download, and right-click → Open does not clear it. Homebrew removes the flag for you; for
+a manual download, remove it yourself:
+
+```bash
+xattr -dr com.apple.quarantine /Applications/CodexRemote.app
+```
 
 [codexremote.io](https://codexremote.io) · not affiliated with OpenAI or Anthropic.
 
