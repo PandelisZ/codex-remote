@@ -2,6 +2,16 @@
 
 A macOS menu bar app that brings remote machines online for Codex.
 
+```bash
+brew install --cask pandelisz/tap/codex-remote
+```
+
+Or [download the latest release](https://github.com/PandelisZ/codex-remote/releases/latest).
+macOS 15+, Apple silicon or Intel. The build is ad-hoc signed rather than notarised, so the
+first launch needs right-click → Open. It lives in the menu bar, not the Dock.
+
+[codexremote.io](https://codexremote.io) · not affiliated with OpenAI or Anthropic.
+
 Give it a cloud provider token. It creates a server with **OpenTofu**, installs **Codex**,
 **Claude Code**, or both on it, and wires each one up the way it expects to be reached.
 They are reached in opposite directions: the Codex app SSHes out to the machine and starts
