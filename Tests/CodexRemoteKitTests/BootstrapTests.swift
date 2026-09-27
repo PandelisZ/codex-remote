@@ -367,3 +367,79 @@ extension ClaudeAccountTests {
         XCTAssertTrue(script.contains("data[\"remoteDialogSeen\"] = True"))
     }
 }
+
+/// Putting an existing project on a machine. The failure modes here are quiet ones —
+/// losing uncommitted work, or arriving without the files a clone cannot carry.
+final class ProjectSyncTests: XCTestCase {
+    private func project(remote: String? = "git@github.com:me/app.git",
+                         dirty: Bool = false,
+                         secrets: [String] = []) -> ProjectSync.Project {
+        ProjectSync.Project(path: "/Users/me/app", name: "app", gitRemote: remote,
+                            branch: "main", hasUncommittedChanges: dirty, secrets: secrets)
+    }
+
+    /// Cloning a repo with uncommitted work silently leaves that work behind, so it stops
+    /// being an option the moment the tree is dirty.
+    func testADirtyTreeIsCopiedRatherThanCloned() {
+        XCTAssertEqual(project(dirty: false).recommended, .clone)
+        XCTAssertEqual(project(dirty: true).recommended, .copy)
+        XCTAssertFalse(project(dirty: true).canClone)
+    }
+
+    /// A local-only repo has nothing to clone from.
+    func testAProjectWithNoRemoteIsCopied() {
+        XCTAssertEqual(project(remote: nil).recommended, .copy)
+    }
+
+    /// Copying node_modules from macOS to Linux ships broken native modules, and the rest
+    /// is rebuildable bulk.
+    func testTheCopyLeavesOutWhatShouldBeRebuilt() {
+        let arguments = ProjectSync.rsyncArguments(project: project(), destination: "h:/srv/w",
+                                                   sshCommand: "ssh", includeGitDirectory: false)
+        for pattern in ["node_modules", ".venv", "dist", ".DS_Store"] {
+            XCTAssertTrue(arguments.contains(pattern), "should exclude \(pattern)")
+        }
+    }
+
+    /// The machine may hold build output or a database. A flag that deletes anything not
+    /// present on this Mac has no business running against someone's working directory.
+    func testTheCopyNeverDeletesOnTheRemote() {
+        let arguments = ProjectSync.rsyncArguments(project: project(), destination: "h:/srv/w",
+                                                   sshCommand: "ssh", includeGitDirectory: true)
+        XCTAssertFalse(arguments.contains("--delete"))
+    }
+
+    /// Without the trailing slash rsync nests the folder inside the destination, giving
+    /// `/srv/workspace/app/app`.
+    func testTheSourceEndsInASlashSoTheFolderIsNotNested() {
+        let arguments = ProjectSync.rsyncArguments(project: project(), destination: "h:/srv/w",
+                                                   sshCommand: "ssh", includeGitDirectory: true)
+        XCTAssertTrue(arguments.contains("/Users/me/app/"))
+    }
+
+    /// Agent forwarding is what lets the machine authenticate as the user without a key
+    /// ever being written to it.
+    func testAgentForwardingIsOptInAndOffByDefault() {
+        let machine = Machine(spec: MachineSpec(name: "m", accountID: UUID(), providerKind: .hetzner,
+                                                region: "r", size: "s", image: "i",
+                                                workspacePath: "/srv/workspace"),
+                              localPort: 1, sshHostAlias: "a", privateKeyPath: "/tmp/k")
+        XCTAssertFalse(ProjectSync.sshCommand(for: machine, forwardAgent: false).contains(" -A"))
+        XCTAssertTrue(ProjectSync.sshCommand(for: machine, forwardAgent: true).contains(" -A"))
+    }
+
+    /// A token in the script would end up in the shell history and in any log of it.
+    func testTheTokenIsReadFromTheEnvironmentNotBakedIntoTheScript() {
+        let script = ProjectSync.cloneScript(project: project(), into: "/srv/workspace",
+                                             auth: .githubToken)
+        XCTAssertTrue(script.contains("$CODEX_REMOTE_GH_TOKEN"))
+        XCTAssertTrue(script.contains("gh auth login --with-token"))
+    }
+
+    /// Re-running must update rather than fail on an existing directory.
+    func testCloningTwiceUpdatesInsteadOfFailing() {
+        let script = ProjectSync.cloneScript(project: project(), into: "/srv/workspace", auth: .none)
+        XCTAssertTrue(script.contains("git fetch"))
+        XCTAssertTrue(script.contains("git clone"))
+    }
+}

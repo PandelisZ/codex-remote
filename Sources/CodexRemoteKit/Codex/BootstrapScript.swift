@@ -602,7 +602,9 @@ public enum BootstrapScript {
 
     /// Shared header: strict mode, a `say` that the UI can parse, and an apt-lock waiter,
     /// because a freshly booted cloud image is usually mid-`unattended-upgrade`.
-    private static let preamble = """
+    /// Shared by every script Codex Remote runs remotely, so progress and failures come
+    /// back through the same two markers the pipeline already parses.
+    static let preamble = """
     set -euo pipefail
     say() { echo "::codex-remote:: $*"; }
     die() { echo "::codex-remote-error:: $*" >&2; exit 1; }

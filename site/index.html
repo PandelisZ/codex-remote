@@ -158,7 +158,21 @@ header { border-bottom: 1px solid var(--line); background: var(--paper); }
 .hero .actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 28px; }
 .hero .req { font-family: var(--mono); font-size: 12.5px; color: var(--ink-mute); margin-top: 16px; }
 
-/* ---------- the panel (hero centrepiece) ---------- */
+/* ---------- the screenshot (hero centrepiece) ---------- */
+
+.shot { margin: 0; }
+.shot img {
+  display: block; width: 100%; height: auto; max-width: 100%;
+  border: 1px solid var(--line); border-radius: 8px;
+  background: var(--surface);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.04), 0 18px 40px -22px rgb(0 0 0 / 0.35);
+}
+.shot figcaption {
+  font-family: var(--mono); font-size: 12px; color: var(--ink-mute);
+  margin-top: 12px;
+}
+
+/* ---------- the panel (unused by the hero; kept for inline UI fragments) ---------- */
 
 .panel {
   background: var(--surface);
@@ -309,32 +323,12 @@ footer { border-top: 1px solid var(--line); padding-block: 30px 48px; }
     <p class="req">macOS 15+ · Apple silicon or Intel · MIT</p>
   </div>
 
-  <div class="panel" role="img" aria-label="The Codex Remote menu bar panel showing two machines online: codex-eu on Hetzner in nbg1, and claude-box on Hetzner in fsn1.">
-    <div class="panel-top">
-      <b>Codex Remote</b>
-      <span class="count">2 of 2 online</span>
-    </div>
-    <div class="row">
-      <span class="led"></span>
-      <div>
-        <div class="name">codex-eu</div>
-        <div class="sub">hetzner · nbg1 · ccx13 · ssh codex-remote-codex-eu</div>
-      </div>
-      <span class="open">Open</span>
-    </div>
-    <div class="row">
-      <span class="led"></span>
-      <div>
-        <div class="name">claude-box</div>
-        <div class="sub">hetzner · fsn1 · ccx13 · claude.ai/code</div>
-      </div>
-      <span class="open">Open</span>
-    </div>
-    <div class="panel-foot">
-      <span>+ New machine</span>
-      <span style="margin-left:auto">idle shutdown: 30m</span>
-    </div>
-  </div>
+  <figure class="shot">
+    <img src="img/panel.png" width="768" height="374"
+         alt="The Codex Remote menu bar panel: one machine called demo on Hetzner, showing a blue idle indicator and the line “idle · CPU 0% · RAM 0.6/7.6 GB”, with an Open button and a New machine button.">
+    <figcaption>A real machine, live. Blue means idle — nothing running, safe to stop.</figcaption>
+  </figure>
+
 </section>
 
 <section class="wrap section" id="chores">

@@ -60,6 +60,10 @@ func usage() -> String {
                                          provider's real schema. Creates nothing.
 
     CLAUDE CODE
+      push <name> [path] [--clone|--copy] [--forward-agent|--gh-token]
+                                         Put a local project on the machine. Clones when the
+                                         work is pushed, copies when it is not, and sends the
+                                         untracked .env files a clone cannot carry
       mcp serve                          Run the MCP server so an agent can manage machines
       mcp config                         Print the snippet to add it to your agent
       codex-pair <name> [--open]         Show a Codex pairing code for the machine, so it
@@ -774,6 +778,38 @@ case "codex-pair":
             _ = try? await Shell.run(open, [CodexRemoteControl.connectionsDeepLink.absoluteString],
                                      timeout: 20)
         }
+    } catch {
+        fail(error.localizedDescription)
+    }
+
+case "push":
+    guard args.positional.count >= 1 else {
+        fail("usage: codex-remote push <machine> [path] [--clone|--copy] [--forward-agent|--gh-token]")
+    }
+    let machine = findMachine(args.positional[0])
+    let path = args.positional.count >= 2
+        ? args.positional[1]
+        : FileManager.default.currentDirectoryPath
+    do {
+        let project = await ProjectSync.inspect(path: path)
+        let method: ProjectSync.Method? = args.bool("clone") ? .clone
+            : args.bool("copy") ? .copy : nil
+        let auth: ProjectSync.GitAuth = args.bool("gh-token") ? .githubToken
+            : args.bool("forward-agent") ? .agentForwarding : .none
+
+        print("Sending \(project.name) to \(machine.name)…")
+        if project.hasUncommittedChanges, method == .clone {
+            print("  Note: this tree has uncommitted changes, and a clone will not carry them.")
+        }
+        if !project.secrets.isEmpty {
+            print("  Untracked config it will also send: \(project.secrets.joined(separator: ", "))")
+        }
+        let destination = try await manager.syncProject(machine.id, localPath: path,
+                                                        method: method, auth: auth) { message in
+            print("  \(message)")
+        }
+        print("\n✓ \(project.name) is at \(destination) on \(machine.name).")
+        print("  Open it with: ssh \(machine.sshHostAlias) -t 'cd \(destination) && bash -l'")
     } catch {
         fail(error.localizedDescription)
     }

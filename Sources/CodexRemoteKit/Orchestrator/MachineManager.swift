@@ -483,6 +483,77 @@ public final class MachineManager: @unchecked Sendable {
     // MARK: - Claude Code sign-in
 
     /// Starts the browser sign-in on a machine and returns the URL to approve.
+    // MARK: - Projects
+
+    /// Puts a local project onto a machine, and sends the untracked files a clone cannot
+    /// carry. Returns the path it landed at.
+    @discardableResult
+    public func syncProject(_ id: UUID, localPath: String,
+                            method: ProjectSync.Method? = nil,
+                            auth: ProjectSync.GitAuth = .none,
+                            onProgress: (@Sendable (String) -> Void)? = nil) async throws -> String {
+        guard let machine = machine(id: id), let address = machine.instance?.sshAddress else {
+            throw ProviderError.unsupported("sending a project to a machine with no address",
+                                            provider: "codex-remote")
+        }
+        let project = await ProjectSync.inspect(path: localPath)
+        let chosen = method ?? project.recommended
+        let workspace = machine.spec.workspacePath
+        let destination = "\(workspace)/\(project.name)"
+        let ssh = SSHClient(host: address, user: machine.sshUser,
+                            privateKeyPath: machine.privateKeyPath, port: machine.sshPort)
+
+        switch chosen {
+        case .clone:
+            onProgress?("Cloning \(project.name) from \(project.gitRemote ?? "origin")")
+            let script = ProjectSync.cloneScript(project: project, into: workspace, auth: auth)
+            if auth == .githubToken, let token = await Self.githubToken() {
+                _ = try await ssh.runScriptWithInput(script, input: token + "\n", timeout: 600,
+                                                     label: "clone \(project.name)")
+            } else {
+                _ = try await ssh.runScript(script, timeout: 600, label: "clone \(project.name)")
+            }
+
+        case .copy:
+            onProgress?("Copying \(project.name)")
+            guard let rsync = Shell.which("rsync") else {
+                throw ProviderError.unsupported("rsync is not installed on this Mac", provider: "codex-remote")
+            }
+            _ = try await ssh.run("mkdir -p \(BootstrapScript.shellSafe(destination))", timeout: 60)
+            let arguments = ProjectSync.rsyncArguments(
+                project: project,
+                destination: "\(machine.sshUser)@\(address):\(destination)/",
+                sshCommand: ProjectSync.sshCommand(for: machine, forwardAgent: auth == .agentForwarding),
+                includeGitDirectory: project.gitRemote != nil)
+            let result = try await Shell.run(rsync, arguments, timeout: 1800)
+            guard result.succeeded else {
+                throw ProviderError.unsupported("rsync failed: \(result.combined.prefix(300))",
+                                                provider: "codex-remote")
+            }
+        }
+
+        // A clone never carries these, and a copy excludes nothing by this name — but they
+        // are the difference between a project that runs and one that does not.
+        if !project.secrets.isEmpty {
+            onProgress?("Sending \(project.secrets.count) untracked config file(s)")
+            for secret in project.secrets {
+                let local = URL(fileURLWithPath: project.path).appendingPathComponent(secret)
+                guard let contents = try? String(contentsOf: local, encoding: .utf8) else { continue }
+                try await ssh.writeFile(contents, to: "\(destination)/\(secret)", mode: "0600")
+            }
+        }
+        return destination
+    }
+
+    /// The `gh` CLI's token, if the user is logged in. Read on demand and never stored.
+    static func githubToken() async -> String? {
+        guard let gh = Shell.which("gh"),
+              let result = try? await Shell.run(gh, ["auth", "token"], timeout: 20),
+              result.succeeded else { return nil }
+        let token = result.stdout.trimmingCharacters(in: .whitespacesAndNewlines)
+        return token.isEmpty ? nil : token
+    }
+
     // MARK: - Codex remote control
 
     /// Turns on Codex's dial-out remote control and returns a fresh pairing code.

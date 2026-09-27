@@ -120,6 +120,18 @@ public actor MCPServer {
                           "required": ["name", "command"]],
                  level: .write),
 
+            Tool(name: "sync_project",
+                 description: "Put a local project on a machine. Clones from its git remote when the work is pushed, copies it when it is not, and separately sends untracked config like .env that a clone cannot carry. Excludes node_modules and other rebuildable bulk.",
+                 schema: ["type": "object",
+                          "properties": [
+                            "name": machineName,
+                            "path": ["type": "string", "description": "Absolute path to the project on this Mac."],
+                            "method": ["type": "string", "enum": ["clone", "copy"],
+                                       "description": "Omit to let it choose: clone when the tree is clean and has a remote, copy otherwise."],
+                          ],
+                          "required": ["name", "path"]],
+                 level: .write),
+
             Tool(name: "create_machine",
                  description: "Create a new cloud server and install the agents on it. THIS COSTS MONEY — it bills to the user's own cloud account from the moment it exists. Call list_sizes first and tell the user the price before calling this.",
                  schema: ["type": "object",
@@ -184,6 +196,7 @@ public actor MCPServer {
             case "list_providers":  return (listProviders(), false)
             case "list_sizes":      return (try await sizes(arguments), false)
             case "run_command":     return (try await run(arguments), false)
+            case "sync_project":    return (try await sync(arguments), false)
             case "create_machine":  return (try await create(arguments), false)
             case "set_power":       return (try power(arguments), false)
             case "repair_machine":  return (try await repair(arguments), false)
@@ -337,6 +350,24 @@ public actor MCPServer {
         if output.isEmpty { output = "(no output)" }
         // The exit code is the part an agent most often needs and most often cannot see.
         return result.succeeded ? output : "exit \(result.exitCode)\n\(output)"
+    }
+
+    private func sync(_ arguments: [String: Any]) async throws -> String {
+        let machine = try machine(named: try string(arguments, "name"))
+        let path = try string(arguments, "path")
+        let method = (arguments["method"] as? String).flatMap(ProjectSync.Method.init(rawValue:))
+
+        let project = await ProjectSync.inspect(path: path)
+        let destination = try await manager.syncProject(machine.id, localPath: path, method: method)
+
+        var notes = ["\(project.name) is at \(destination) on \(machine.name)."]
+        if project.hasUncommittedChanges, method == .clone {
+            notes.append("Its tree had uncommitted changes, which a clone does not carry.")
+        }
+        if !project.secrets.isEmpty {
+            notes.append("Also sent: \(project.secrets.joined(separator: ", ")).")
+        }
+        return notes.joined(separator: " ")
     }
 
     private func create(_ arguments: [String: Any]) async throws -> String {
