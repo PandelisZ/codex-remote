@@ -1,0 +1,118 @@
+{
+  "formatVersion": 1,
+  "name": "Codex Remote providers",
+  "homepage": "https://github.com/PandelisZ/codex-remote",
+  "updated": "2026-09-27",
+  "providers": [
+    {
+      "id": "hetzner",
+      "displayName": "Hetzner Cloud",
+      "blurb": "Cheap, fast servers in Europe, the US and Singapore.",
+      "tokenHelpURL": "https://docs.hetzner.com/cloud/api/getting-started/generating-api-token/",
+      "sshUser": "root",
+      "managesSSHKey": true,
+      "supportsPause": true,
+      "provider": {
+        "source": "hetznercloud/hcloud",
+        "version": "~> 1.48"
+      },
+      "credentials": [
+        {
+          "key": "token",
+          "label": "API token",
+          "secret": true,
+          "environmentVariable": "HCLOUD_TOKEN",
+          "help": "Hetzner Cloud console \u2192 Security \u2192 API tokens, with Read & Write."
+        }
+      ],
+      "environment": {
+        "HCLOUD_TOKEN": "{{secret.token}}"
+      },
+      "machineHCL": "resource \"hcloud_ssh_key\" \"key\" {\n  name       = \"codex-remote-${var.name}\"\n  public_key = var.ssh_public_key\n}\n\nresource \"hcloud_server\" \"machine\" {\n  name        = var.name\n  server_type = var.size\n  image       = var.image\n  location    = var.region\n  ssh_keys    = [hcloud_ssh_key.key.id]\n  user_data   = var.user_data\n  labels      = var.tags\n}\n\noutput \"instance_id\"   { value = tostring(hcloud_server.machine.id) }\noutput \"instance_name\" { value = hcloud_server.machine.name }\noutput \"public_ipv4\"   { value = hcloud_server.machine.ipv4_address }\noutput \"public_ipv6\"   { value = hcloud_server.machine.ipv6_address }\noutput \"private_ipv4\"  { value = \"\" }\noutput \"state\"         { value = hcloud_server.machine.status }\n",
+      "catalogHCL": "data \"hcloud_datacenters\" \"all\" {}\ndata \"hcloud_images\" \"all\" {\n  with_architecture = [\"x86\", \"arm\"]\n}\n\noutput \"datacenters\" { value = data.hcloud_datacenters.all.datacenters }\noutput \"images\"      { value = data.hcloud_images.all.images }\n",
+      "catalog": {
+        "regions": {
+          "output": "datacenters",
+          "id": "name",
+          "label": "description"
+        },
+        "images": {
+          "output": "images",
+          "id": "name",
+          "label": "description"
+        }
+      },
+      "fallback": {
+        "regions": [
+          {
+            "id": "nbg1",
+            "label": "Nuremberg, DE"
+          },
+          {
+            "id": "fsn1",
+            "label": "Falkenstein, DE"
+          },
+          {
+            "id": "hel1",
+            "label": "Helsinki, FI"
+          },
+          {
+            "id": "ash",
+            "label": "Ashburn, VA, US"
+          },
+          {
+            "id": "hil",
+            "label": "Hillsboro, OR, US"
+          },
+          {
+            "id": "sin",
+            "label": "Singapore, SG"
+          }
+        ],
+        "sizes": [
+          {
+            "id": "cx23",
+            "label": "2 vCPU \u00b7 4 GB"
+          },
+          {
+            "id": "cx33",
+            "label": "4 vCPU \u00b7 8 GB"
+          },
+          {
+            "id": "cx43",
+            "label": "8 vCPU \u00b7 16 GB"
+          },
+          {
+            "id": "ccx13",
+            "label": "2 dedicated vCPU \u00b7 8 GB"
+          },
+          {
+            "id": "ccx23",
+            "label": "4 dedicated vCPU \u00b7 16 GB"
+          },
+          {
+            "id": "ccx33",
+            "label": "8 dedicated vCPU \u00b7 32 GB"
+          }
+        ],
+        "images": [
+          {
+            "id": "ubuntu-26.04",
+            "label": "Ubuntu 26.04"
+          },
+          {
+            "id": "ubuntu-24.04",
+            "label": "Ubuntu 24.04"
+          },
+          {
+            "id": "debian-13",
+            "label": "Debian 13"
+          }
+        ],
+        "defaultRegion": "nbg1",
+        "defaultSize": "cx23",
+        "defaultImage": "ubuntu-26.04"
+      }
+    }
+  ]
+}

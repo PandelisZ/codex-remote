@@ -289,3 +289,98 @@ extension ClaudeLoginTests {
                        "the payload must stay quoted, got: \(command)")
     }
 }
+
+/// The registry is fetched from a URL anyone can host, so its validation is the only thing
+/// standing between a malformed entry and a half-created server.
+final class ProviderRegistryDocumentTests: XCTestCase {
+    private func entry(id: String = "acme",
+                       machineHCL: String = "output \"instance_id\" {}\noutput \"public_ipv4\" {}",
+                       version: String = "~> 1.0") -> ProviderRegistryDocument.Entry {
+        ProviderRegistryDocument.Entry(
+            id: id, displayName: "Acme", blurb: "",
+            provider: .init(source: "acme/acme", version: version),
+            credentials: [.init(key: "token", label: "Token")],
+            environment: ["ACME_TOKEN": "{{secret.token}}"],
+            machineHCL: machineHCL,
+            fallback: .init(regions: [.init(id: "r", label: "R")],
+                            sizes: [.init(id: "s", label: "S")],
+                            images: [.init(id: "i", label: "I")]))
+    }
+
+    private func document(_ entries: [ProviderRegistryDocument.Entry],
+                          version: Int = 1) -> ProviderRegistryDocument {
+        ProviderRegistryDocument(formatVersion: version, name: "test", providers: entries)
+    }
+
+    func testAWellFormedRegistryValidates() throws {
+        XCTAssertNoThrow(try document([entry()]).validated())
+    }
+
+    /// Machines record the provider id, so two entries sharing one would make a machine's
+    /// cloud ambiguous.
+    func testDuplicateIDsAreRefused() {
+        XCTAssertThrowsError(try document([entry(), entry()]).validated()) { error in
+            XCTAssertEqual(error as? ProviderRegistryDocument.Invalid, .duplicateIDs(["acme"]))
+        }
+    }
+
+    /// Without these outputs a machine comes up with no address to reach it at, and the
+    /// failure would otherwise surface long after the server was billed for.
+    func testHCLMissingTheAddressOutputIsRefused() {
+        let broken = entry(machineHCL: "output \"instance_id\" { value = 1 }")
+        XCTAssertThrowsError(try document([broken]).validated()) { error in
+            guard case .entry(_, let problem)? = error as? ProviderRegistryDocument.Invalid else {
+                return XCTFail("expected an entry problem")
+            }
+            XCTAssertTrue(problem.contains("public_ipv4"), problem)
+        }
+    }
+
+    /// An unpinned provider means a machine built today and one built next month are not
+    /// the same machine.
+    func testAnUnpinnedProviderVersionIsRefused() {
+        XCTAssertThrowsError(try document([entry(version: "")]).validated())
+    }
+
+    /// A newer format is refused outright: a partly-understood cloud module is worse than
+    /// no module, and the cached one keeps working.
+    func testAFutureFormatIsRefusedRatherThanPartlyUnderstood() {
+        XCTAssertThrowsError(try document([entry()], version: 99).validated()) { error in
+            XCTAssertEqual(error as? ProviderRegistryDocument.Invalid, .unsupportedVersion(found: 99))
+        }
+    }
+
+    // MARK: - Templates
+
+    func testTemplatesReachSecretsFieldsAndTheRequest() {
+        let expanded = ProviderRegistryDocument.expand(
+            "{{secret.token}}|{{field.project}}|{{request.region}}",
+            fields: ["project": "p1"], secrets: ["token": "abc"], request: ["region": "nbg1"])
+        XCTAssertEqual(expanded, "abc|p1|nbg1")
+    }
+
+    /// A provider that ignores a variable it does not need is normal, so an unknown
+    /// placeholder must not blow up a create.
+    func testAnUnknownPlaceholderBecomesEmptyRatherThanFailing() {
+        XCTAssertEqual(ProviderRegistryDocument.expand("[{{secret.nope}}]",
+                                                       fields: [:], secrets: [:]), "[]")
+    }
+
+    /// Registry text is not a template language; an unclosed brace is just text.
+    func testAnUnclosedPlaceholderStaysLiteral() {
+        XCTAssertEqual(ProviderRegistryDocument.expand("a {{secret.token",
+                                                       fields: [:], secrets: ["token": "x"]),
+                       "a {{secret.token")
+    }
+
+    /// The registry we actually publish has to satisfy the rules we publish.
+    func testTheShippedRegistryIsValid() throws {
+        let url = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+            .appendingPathComponent("site/registry.json")
+        let data = try Data(contentsOf: url)
+        let document = try JSONDecoder().decode(ProviderRegistryDocument.self, from: data)
+        XCTAssertNoThrow(try document.validated())
+        XCTAssertTrue(document.providers.contains { $0.id == "hetzner" })
+    }
+}

@@ -51,6 +51,9 @@ struct ProviderSettings: View {
                             .foregroundStyle(.secondary)
                             .fixedSize(horizontal: false, vertical: true)
                     }
+
+                    RegistrySection()
+                        .environmentObject(state)
                 }
                 .formStyle(.grouped)
                 .softScrollEdges()
@@ -371,5 +374,116 @@ struct GeneralSettings: View {
             workspace = state.settings.defaultWorkspacePath
             pollSeconds = Double(state.settings.healthPollSeconds)
         }
+    }
+}
+
+/// Where the catalogue of clouds comes from.
+///
+/// A registry supplies OpenTofu HCL that runs against the credentials you gave it, so
+/// switching to a new one is a deliberate act: the URL is checked and summarised before it
+/// is saved, and nothing changes until you accept what came back.
+struct RegistrySection: View {
+    @EnvironmentObject private var state: AppState
+
+    @State private var draft = ""
+    @State private var checking = false
+    @State private var found: ProviderRegistryDocument?
+    @State private var problem: String?
+    @State private var loadedNote: String?
+
+    private var official: String { RemoteProviderRegistry.officialURL.absoluteString }
+    private var isDirty: Bool { draft != state.settings.providerRegistryURL }
+
+    var body: some View {
+        Section {
+            TextField("Registry URL", text: $draft, prompt: Text(official))
+                .textFieldStyle(.roundedBorder)
+                .autocorrectionDisabled()
+                .onSubmit { Task { await check() } }
+
+            HStack(spacing: Theme.Space.snug) {
+                Button("Check") { Task { await check() } }
+                    .disabled(checking || draft.trimmingCharacters(in: .whitespaces).isEmpty)
+                if isDirty, found != nil {
+                    Button("Use this registry") { save() }
+                        .buttonStyle(.borderedProminent)
+                }
+                if draft != official {
+                    Button("Reset to official") {
+                        draft = official
+                        found = nil
+                        problem = nil
+                    }
+                }
+                if checking { ProgressView().controlSize(.small) }
+                Spacer()
+            }
+
+            if let found {
+                LabeledContent("Found") {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("\(found.name) — \(found.providers.count) provider\(found.providers.count == 1 ? "" : "s")")
+                        Text(found.providers.map(\.displayName).joined(separator: ", "))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+            }
+
+            if let problem {
+                Label(problem, systemImage: "exclamationmark.triangle.fill")
+                    .foregroundStyle(.red)
+                    .font(.caption)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            if let loadedNote {
+                Text(loadedNote)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        } header: {
+            Text("Registry")
+        } footer: {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Clouds are data — OpenTofu HCL plus the environment their credentials map onto — so the catalogue is fetched rather than built in. Point this at your own registry for your own providers.")
+                Text("A registry supplies HCL that runs against your cloud credentials. Only use one you trust, the same way you would a Terraform module you are about to apply.")
+                Link("Registry format", destination: URL(string: "https://github.com/PandelisZ/codex-remote/blob/main/docs/registry.md")!)
+            }
+            .font(.caption)
+            .foregroundStyle(.secondary)
+            .fixedSize(horizontal: false, vertical: true)
+        }
+        .task {
+            draft = state.settings.providerRegistryURL
+            if let loaded = await RemoteProviderRegistry.shared.cachedDocument() {
+                loadedNote = loaded.fromCache
+                    ? "Using a cached copy from \(loaded.fetchedAt.formatted(date: .abbreviated, time: .shortened))."
+                    : nil
+            }
+        }
+    }
+
+    private func check() async {
+        guard let url = URL(string: draft.trimmingCharacters(in: .whitespaces)) else {
+            problem = "That is not a URL."
+            return
+        }
+        checking = true
+        problem = nil
+        found = nil
+        do {
+            found = try await RemoteProviderRegistry.shared.preview(url)
+        } catch {
+            problem = error.localizedDescription
+        }
+        checking = false
+    }
+
+    private func save() {
+        let url = draft.trimmingCharacters(in: .whitespaces)
+        state.updateSettings { $0.providerRegistryURL = url }
+        loadedNote = "Saved. New machines can use these providers."
     }
 }

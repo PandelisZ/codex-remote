@@ -105,7 +105,7 @@ public enum CodexRegistrar {
     static func writeDispatcher(machines: [Machine]) throws {
         let rows = machines
             .sorted { $0.name < $1.name }
-            .map { "  printf '  %-22s %-10s %s\\n' '\($0.sshHostAlias)' '\($0.spec.providerKind)' '\($0.endpoint)'" }
+            .map { "  printf '  %-22s %-10s %s\\n' '\($0.launcherSlug)' '\($0.spec.providerKind)' '\($0.endpoint)'" }
             .joined(separator: "\n")
 
         let script = """
@@ -118,7 +118,7 @@ public enum CodexRegistrar {
           echo "Codex Remote machines:"
         \(rows.isEmpty ? "  echo '  (none yet — add one from the Codex Remote menu bar item)'" : rows)
           echo
-          echo "Open one with: codex-attach <alias>"
+          echo "Open one with: codex-attach <name>"
         }
 
         if [ $# -eq 0 ]; then list; exit 0; fi
@@ -126,12 +126,13 @@ public enum CodexRegistrar {
         case "$target" in
           -h|--help|list) list; exit 0 ;;
         esac
-        launcher="$BIN_DIR/codex-$target"
+        launcher="$BIN_DIR/codex-attach-$target"
+        # Also accept the full SSH alias, which is what `codex-remote list` prints.
         if [ ! -x "$launcher" ]; then
-          launcher="$BIN_DIR/codex-attach-$target"
+          launcher="$BIN_DIR/codex-attach-${target#codex-remote-}"
         fi
         if [ ! -x "$launcher" ]; then
-          echo "codex-remote: no machine called '$target'." >&2
+          echo "codex-attach: no machine called '$target'." >&2
           list >&2
           exit 1
         fi
@@ -142,11 +143,10 @@ public enum CodexRegistrar {
         try FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: url.path)
     }
 
-    /// A file the user can `source` from their shell profile to get the launchers on PATH
-    /// plus a completion-friendly `codex-remote` function.
+    /// A file the user can `source` from their shell profile to get the launchers on PATH.
     static func writeShellIntegration(machines: [Machine]) throws {
         let aliases = machines.sorted { $0.name < $1.name }
-            .map { "#   \($0.sshHostAlias)  →  \($0.endpoint)  (\($0.spec.providerKind))" }
+            .map { "#   \($0.launcherSlug)  →  \($0.endpoint)  (\($0.spec.providerKind))" }
             .joined(separator: "\n")
 
         let script = """
@@ -158,8 +158,11 @@ public enum CodexRegistrar {
 
         export PATH="$HOME/.codex/codex-remote/bin:$PATH"
 
-        # `codex-remote` with no argument lists machines; `codex-remote <alias>` opens Codex on it.
-        codex-remote() { command codex-attach "$@"; }
+        # Deliberately no `codex-remote` shell function here. One used to be defined, which
+        # shadowed the CLI of the same name: after sourcing this, `codex-remote create` ran
+        # the launcher dispatcher instead. The PATH line above is all this file needs to do.
+        #
+        # `codex-attach` with no argument lists machines; `codex-attach <name>` opens Codex on it.
         """
         let url = Paths.codexRemoteHome.appendingPathComponent("shell.sh")
         try script.write(to: url, atomically: true, encoding: .utf8)

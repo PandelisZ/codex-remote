@@ -272,7 +272,16 @@ public struct Machine: Codable, Hashable, Sendable, Identifiable {
     public var tokenKeychainAccount: String { "machine.\(id.uuidString).appserver-token" }
     /// Env var name the Codex CLI is told to read the bearer token from.
     public var tokenEnvVar: String { "CODEX_REMOTE_TOKEN_\(sshHostAlias.replacingOccurrences(of: "-", with: "_").uppercased())" }
-    public var launcherPath: String { Paths.binDir.appendingPathComponent("codex-\(sshHostAlias)").path }
+    /// The alias already carries the product prefix, so building the launcher name from
+    /// it produced `codex-codex-remote-<name>`. Use the bare slug.
+    public var launcherSlug: String {
+        let prefix = "codex-remote-"
+        return sshHostAlias.hasPrefix(prefix) ? String(sshHostAlias.dropFirst(prefix.count)) : sshHostAlias
+    }
+
+    public var launcherPath: String {
+        Paths.binDir.appendingPathComponent("codex-attach-\(launcherSlug)").path
+    }
 
     public var isReady: Bool {
         guard stage == .ready else { return false }
@@ -407,6 +416,8 @@ public struct AppSettings: Codable, Sendable {
             ?? defaults.registerWithCodexApp
         autoRestartCodexApp = try container.decodeIfPresent(Bool.self, forKey: .autoRestartCodexApp)
             ?? defaults.autoRestartCodexApp
+        providerRegistryURL = try container.decodeIfPresent(String.self, forKey: .providerRegistryURL)
+            ?? defaults.providerRegistryURL
     }
 
     public var basePort: Int
@@ -415,6 +426,12 @@ public struct AppSettings: Codable, Sendable {
     public var defaultWorkspacePath: String
     public var autoReconnectTunnels: Bool
     public var healthPollSeconds: Int
+    /// Add every ready machine to the Codex desktop app's Remotes list.
+    /// Where the catalogue of clouds comes from. Clouds are data — OpenTofu HCL plus the
+    /// environment their credentials map onto — so they are fetched rather than compiled
+    /// in, and pointing this at your own registry gives you your own catalogue. Format:
+    /// `docs/registry.md`.
+    public var providerRegistryURL: String
     /// Add every ready machine to the Codex desktop app's Remotes list.
     public var registerWithCodexApp: Bool
     /// Quit and relaunch the Codex app automatically when its remote list changes.
@@ -427,7 +444,8 @@ public struct AppSettings: Codable, Sendable {
                 autoReconnectTunnels: Bool = true,
                 healthPollSeconds: Int = 15,
                 registerWithCodexApp: Bool = true,
-                autoRestartCodexApp: Bool = false) {
+                autoRestartCodexApp: Bool = false,
+                providerRegistryURL: String = RemoteProviderRegistry.officialURL.absoluteString) {
         self.basePort = basePort
         self.launchAtLogin = launchAtLogin
         self.codexVersionPin = codexVersionPin
@@ -436,5 +454,6 @@ public struct AppSettings: Codable, Sendable {
         self.healthPollSeconds = healthPollSeconds
         self.registerWithCodexApp = registerWithCodexApp
         self.autoRestartCodexApp = autoRestartCodexApp
+        self.providerRegistryURL = providerRegistryURL
     }
 }
