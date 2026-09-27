@@ -16,7 +16,7 @@ final class RegistryMigrationTests: XCTestCase {
         {
           "id": "E7665BE4-DECD-409B-A8A7-102B59F7D4A3",
           "spec": {
-            "accountID": "B5ED7AAC-B680-48AC-8437-4C6345167C56",
+            "accountID": "00000000-0000-4000-A000-000000000001",
             "extraPackages": [],
             "idleShutdownMinutes": 0,
             "image": "ubuntu-24.04",
@@ -32,7 +32,7 @@ final class RegistryMigrationTests: XCTestCase {
           "health": "online",
           "localPort": 14560,
           "powerIntent": "up",
-          "privateKeyPath": "/Users/pz/.codex/codex-remote/keys/id_codex-remote",
+          "privateKeyPath": "/Users/example/.codex/codex-remote/keys/id_codex-remote",
           "remotePort": 1456,
           "sshHostAlias": "codex-remote-codex-eu",
           "sshPort": 22,
