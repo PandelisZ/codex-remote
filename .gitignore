@@ -1,0 +1,10 @@
+# SwiftPM build products
+.build/
+build/
+
+# macOS
+.DS_Store
+
+# Local scratch
+*.tar.gz
+.token.tmp

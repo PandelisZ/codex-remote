@@ -1,0 +1,128 @@
+import XCTest
+@testable import CodexRemoteKit
+
+final class ManagedBlockTests: XCTestCase {
+    func testAppendsBlockToFileWithoutOne() {
+        let original = "Host github.com\n    User git\n"
+        let updated = ManagedBlock.apply(body: "Include config.d/codex-remote", to: original)
+        XCTAssertTrue(updated.hasPrefix(original))
+        XCTAssertTrue(updated.contains("Include config.d/codex-remote"))
+        XCTAssertTrue(updated.contains(ManagedBlock.begin))
+        XCTAssertTrue(updated.contains(ManagedBlock.end))
+    }
+
+    func testReplacesOnlyTheManagedRegion() {
+        let original = ManagedBlock.apply(body: "first", to: "before\n") + "after\n"
+        let updated = ManagedBlock.apply(body: "second", to: original)
+        XCTAssertTrue(updated.hasPrefix("before\n"))
+        XCTAssertTrue(updated.hasSuffix("after\n"))
+        XCTAssertTrue(updated.contains("second"))
+        XCTAssertFalse(updated.contains("first"))
+    }
+
+    func testRepeatedWritesAreStable() {
+        var text = "user content\n"
+        text = ManagedBlock.apply(body: "x", to: text)
+        let once = text
+        text = ManagedBlock.apply(body: "x", to: text)
+        XCTAssertEqual(once, text, "rewriting the same body must not grow the file")
+    }
+
+    func testRemoveLeavesUserContentIntact() {
+        let original = "keep me\n"
+        let withBlock = ManagedBlock.apply(body: "managed", to: original)
+        XCTAssertEqual(ManagedBlock.remove(from: withBlock), original + "\n")
+    }
+}
+
+final class HostAliasTests: XCTestCase {
+    func testAliasIsShellAndSSHSafe() {
+        XCTAssertEqual(SSHConfigManager.hostAlias(for: "Codex EU"), "codex-remote-codex-eu")
+        XCTAssertEqual(SSHConfigManager.hostAlias(for: "build/box_1"), "codex-remote-build-box-1")
+        XCTAssertEqual(SSHConfigManager.hostAlias(for: "  "), "codex-remote-machine")
+        XCTAssertEqual(SSHConfigManager.hostAlias(for: "a--b"), "codex-remote-a-b")
+    }
+}
+
+final class PortAllocatorTests: XCTestCase {
+    func testSkipsPortsAlreadyClaimedByOtherMachines() {
+        let port = PortAllocator.allocate(basePort: 14560, taken: [14560, 14561])
+        XCTAssertGreaterThanOrEqual(port, 14562)
+    }
+
+    func testAllocatedPortIsActuallyBindable() {
+        let port = PortAllocator.allocate(basePort: 14700, taken: [])
+        XCTAssertTrue(PortAllocator.isFree(port))
+    }
+}
+
+final class JSONStoreTests: XCTestCase {
+    func testRoundTripsAndFallsBackOnMissingFile() throws {
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent("codex-remote-test-\(UUID().uuidString).json")
+        defer { try? FileManager.default.removeItem(at: url) }
+
+        let store = JSONStore<AppSettings>(url: url) { AppSettings() }
+        XCTAssertEqual(store.load().basePort, 14560, "a missing file yields the fallback")
+
+        var settings = AppSettings()
+        settings.basePort = 20000
+        settings.codexVersionPin = "0.157.0"
+        try store.save(settings)
+
+        XCTAssertEqual(store.load().basePort, 20000)
+        XCTAssertEqual(store.load().codexVersionPin, "0.157.0")
+    }
+
+    func testCorruptFileFallsBackInsteadOfCrashing() throws {
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent("codex-remote-test-\(UUID().uuidString).json")
+        defer { try? FileManager.default.removeItem(at: url) }
+        try "{ not json".write(to: url, atomically: true, encoding: .utf8)
+
+        let store = JSONStore<AppSettings>(url: url) { AppSettings() }
+        XCTAssertEqual(store.load().basePort, 14560)
+    }
+}
+
+final class SecretTests: XCTestCase {
+    func testSecretDoesNotPrintItsValue() {
+        let secret = Secret("hunter2-super-private")
+        XCTAssertEqual("\(secret)", "<redacted>")
+        XCTAssertFalse(String(describing: secret).contains("hunter2"))
+        XCTAssertEqual(secret.fingerprintSuffix, "vate")
+    }
+}
+
+/// The Codex desktop app finds remote hosts by parsing ~/.ssh/config with the `ssh-config`
+/// npm package, which does not expand `Include`. Entries behind an Include are invisible
+/// to it, so they have to be written into the file itself — and above any `Host *`.
+final class SSHConfigPlacementTests: XCTestCase {
+    func testTheBlockLeadsTheFileSoAHostStarCannotWin() {
+        let user = """
+        Host *
+            ServerAliveInterval 60
+        """
+        let out = SSHConfigManager.placeAtTop(body: "Host codex-remote-demo\n    HostName 10.0.0.1",
+                                              in: user)
+        let block = try! XCTUnwrap(out.range(of: "Host codex-remote-demo"))
+        let star = try! XCTUnwrap(out.range(of: "Host *"))
+        XCTAssertTrue(block.lowerBound < star.lowerBound)
+        XCTAssertTrue(out.contains("ServerAliveInterval 60"), "the user's config must survive")
+    }
+
+    func testResyncingReplacesTheBlockRatherThanStackingCopies() {
+        var text = SSHConfigManager.placeAtTop(body: "Host codex-remote-one", in: "Host mine\n")
+        text = SSHConfigManager.placeAtTop(body: "Host codex-remote-two", in: text)
+        XCTAssertFalse(text.contains("codex-remote-one"))
+        XCTAssertEqual(text.components(separatedBy: ManagedBlock.begin).count - 1, 1)
+        XCTAssertTrue(text.contains("Host mine"))
+    }
+
+    func testTeardownLeavesTheUsersConfigIntact() {
+        let original = "Host mine\n    HostName example.com\n"
+        let withBlock = SSHConfigManager.placeAtTop(body: "Host codex-remote-demo", in: original)
+        XCTAssertEqual(ManagedBlock.remove(from: withBlock).drop(while: \.isNewline),
+                       original.drop(while: \.isNewline))
+    }
+}
