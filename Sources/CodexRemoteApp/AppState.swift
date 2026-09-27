@@ -21,6 +21,8 @@ final class AppState: ObservableObject {
     /// along with anything presented from it — closes as soon as focus moves.
     @Published var claudeSignInTarget: Machine?
     @Published var codexPairingTarget: Machine?
+    /// Bumped on each copy so the button can acknowledge it.
+    @Published var setupPromptCopiedAt = Date.distantPast
 
     struct Banner: Identifiable, Equatable {
         enum Kind: Equatable { case info, warning, error }
@@ -255,6 +257,14 @@ final class AppState: ObservableObject {
     /// Opens the machine's live Claude session in the browser. A Claude machine has no
     /// local endpoint to launch a terminal against — it lives in the account — so the
     /// session URL is the equivalent of Codex's launcher.
+    func copySetupPrompt() {
+        let cli = Bundle.main.url(forAuxiliaryExecutable: "codex-remote")?.path ?? "codex-remote"
+        let prompt = SetupPrompt.firstMachine(hasAccount: !accounts.isEmpty, cliPath: cli)
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(prompt, forType: .string)
+        setupPromptCopiedAt = Date()
+    }
+
     func openInClaude(_ machine: Machine) {
         guard let url = machine.claudeSessionURL.flatMap(URL.init(string:)) else {
             banner = Banner(kind: .warning,

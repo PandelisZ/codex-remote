@@ -14,6 +14,7 @@ struct MenuBarView: View {
     /// Removal is confirmed inline rather than in an alert: an alert raised from a menu bar
     /// popover disappears with the popover as soon as focus moves.
     @State private var pendingDeletion: Machine?
+    @State private var promptCopied = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -119,12 +120,33 @@ struct MenuBarView: View {
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
 
-            if state.accounts.isEmpty {
-                Button("Open Settings…") {
-                    NSApp.activate(ignoringOtherApps: true)
-                    openSettings()
+            HStack(spacing: Theme.Space.snug) {
+                if state.accounts.isEmpty {
+                    Button("Open Settings…") {
+                        NSApp.activate(ignoringOtherApps: true)
+                        openSettings()
+                    }
+                    .controlSize(.small)
+                }
+
+                // Picking a cloud, a region and a size are questions, not a form to guess
+                // at. Rather than walking someone through the UI, hand their agent a brief
+                // and let it ask them one at a time.
+                Button {
+                    state.copySetupPrompt()
+                } label: {
+                    Label(promptCopied ? "Copied — paste it to your agent" : "Copy prompt for your agent",
+                          systemImage: promptCopied ? "checkmark" : "doc.on.doc")
                 }
                 .controlSize(.small)
+                .help("Copies a brief that walks an agent through setting this up with you")
+            }
+            .onChange(of: state.setupPromptCopiedAt) { _, _ in
+                withAnimation { promptCopied = true }
+                Task {
+                    try? await Task.sleep(nanoseconds: 2_400_000_000)
+                    withAnimation { promptCopied = false }
+                }
             }
         }
         .padding(.horizontal, 28)

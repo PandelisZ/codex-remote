@@ -202,3 +202,52 @@ extension MachineStatusLineTests {
         XCTAssertFalse(text.contains("session"), text)
     }
 }
+
+/// The prompt behind the empty state's copy button. It is handed to an agent with a shell,
+/// so the things it must not do matter as much as the steps.
+final class SetupPromptTests: XCTestCase {
+    private func prompt(hasAccount: Bool = false) -> String {
+        SetupPrompt.firstMachine(hasAccount: hasAccount, cliPath: "/usr/local/bin/codex-remote")
+    }
+
+    /// An agent that guesses at a region and a size spends the user's money on the wrong
+    /// machine, so the prompt has to make asking the default.
+    func testItTellsTheAgentToAskRatherThanGuess() {
+        let text = prompt()
+        XCTAssertTrue(text.contains("asking one question at a time"))
+        XCTAssertTrue(text.contains("Do not guess at flags"))
+    }
+
+    /// Creating twice means being billed twice, and there is no undo.
+    func testItWarnsAgainstRunningCreateTwice() {
+        XCTAssertTrue(prompt().contains("Do not run it more than once"))
+    }
+
+    /// The whole point of keychain storage is that the token never passes through a chat
+    /// transcript or an argv anyone can read.
+    func testItNeverAsksTheUserToHandOverAToken() {
+        let text = prompt()
+        XCTAssertTrue(text.contains("Do not ask me to paste the token to you"))
+        XCTAssertTrue(text.contains("Never put a token in a command line argument"))
+    }
+
+    /// Codex's pairing prompt is a security control, and an agent told to "make it work"
+    /// would otherwise try to route around it.
+    func testItTellsTheAgentNotToBypassThePairingPrompt() {
+        XCTAssertTrue(prompt().contains("do not try to work around it"))
+    }
+
+    /// With an account already set up, the token instructions are noise; without one they
+    /// are the first thing needed.
+    func testItAdaptsToWhetherAnAccountExists() {
+        XCTAssertTrue(prompt(hasAccount: false).contains("No provider account is configured yet"))
+        XCTAssertTrue(prompt(hasAccount: true).contains("already configured"))
+        XCTAssertFalse(prompt(hasAccount: true).contains("No provider account is configured yet"))
+    }
+
+    /// A bare `codex-remote` is not on PATH until the shell integration is sourced, so the
+    /// prompt carries the real path.
+    func testItCarriesTheResolvedCLIPath() {
+        XCTAssertTrue(prompt().contains("/usr/local/bin/codex-remote"))
+    }
+}
