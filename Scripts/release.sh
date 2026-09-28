@@ -5,8 +5,12 @@
 #   Scripts/release.sh 0.3.0
 #
 # The feed at https://codexremote.io/latest.json is what installed copies poll. It carries
-# the SHA-256, which is the only thing making an unsigned download verifiable — so it is
-# written from the artifact that is actually uploaded, never typed by hand.
+# the SHA-256 of the artifact that is actually uploaded, never a hand-typed one.
+#
+# Releases are signed and notarised here, on a Mac with the Developer ID certificate, rather
+# than in CI — see docs/releasing.md. Scripts/notarize.sh does that part and refuses to
+# continue if it cannot, because a release that is not notarised is one macOS reports as
+# damaged on every machine that downloads it.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -50,9 +54,14 @@ say "Building the app"
 ./Scripts/bundle.sh >/dev/null
 test -d build/CodexRemote.app
 
+# Before the tag, not after: a failure here should leave nothing published and nothing
+# tagged, rather than a release everyone's Gatekeeper rejects.
+./Scripts/notarize.sh build/CodexRemote.app
+
 say "Packaging"
 mkdir -p dist && rm -f "dist/$ZIP"
-# ditto, not zip: it keeps the bundle's symlinks, xattrs and signature intact.
+# ditto, not zip: it keeps the bundle's symlinks, xattrs and signature intact. Zipped
+# after stapling, so the ticket travels with the download and a first launch offline works.
 ditto -c -k --keepParent --sequesterRsrc build/CodexRemote.app "dist/$ZIP"
 SHA="$(shasum -a 256 "dist/$ZIP" | awk '{print $1}')"
 SIZE="$(stat -f%z "dist/$ZIP")"
@@ -90,6 +99,9 @@ TAP="$(mktemp -d)"
 git clone -q git@github.com:PandelisZ/homebrew-tap.git "$TAP"
 /usr/bin/sed -i '' -E "s/version \"[^\"]+\"/version \"$VERSION\"/" "$TAP/Casks/codex-remote.rb"
 /usr/bin/sed -i '' -E "s/sha256 \"[0-9a-f]{64}\"/sha256 \"$SHA\"/" "$TAP/Casks/codex-remote.rb"
+# A notarised build carries its own ticket, so the cask no longer has to strip the
+# quarantine flag behind the user's back. No-op once it has already been removed.
+python3 "$ROOT/Scripts/cask-notarised.py" "$TAP/Casks/codex-remote.rb"
 git -C "$TAP" commit -qam "codex-remote $VERSION"
 git -C "$TAP" push -q origin main
 rm -rf "$TAP"

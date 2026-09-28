@@ -1,78 +1,100 @@
 # Releasing
 
-A release is cut by pushing a tag. `.github/workflows/release.yml` then builds, signs,
-notarises, staples, publishes the GitHub release, writes the update feed and bumps the
-Homebrew cask.
+Releases are cut from a Mac, not from CI:
 
 ```bash
-git tag v0.5.0 && git push origin v0.5.0
+Scripts/release.sh 0.5.0
 ```
 
-`Scripts/release.sh` does the same thing from a laptop, but it cannot notarise — it produces
-an ad-hoc signed build. Use it only when the workflow is unavailable, and expect the
-"damaged" dialog described below.
+That builds the app, signs it with a Developer ID certificate, notarises it with Apple,
+staples the ticket, packages it, publishes the GitHub release, writes the update feed and
+bumps the Homebrew cask. Notarisation runs *before* the tag, so a failure leaves nothing
+published and nothing tagged.
+
+Signing happens here rather than in a workflow because the certificate's private key stays
+on one machine. Nothing has to be exported to a `.p12`, base64-encoded, and handed to a CI
+provider to be decrypted onto a shared runner.
 
 ## Why notarisation is not optional
 
 Gatekeeper judges anything that arrives with a quarantine flag — every browser download, and
-every Homebrew cask that is not marked as coming from a notarised source. An ad-hoc
-signature is not a signature Apple recognises, so the app is reported as **damaged**, not as
-"from an unidentified developer". The right-click → Open escape hatch does not apply to it;
-that is for the unidentified-developer case. Until a release is notarised, the cask has to
-strip the quarantine flag in a `postflight`, which is a workaround the user has to trust.
+every Homebrew cask not marked as coming from a notarised source. An ad-hoc signature is not
+a signature Apple recognises, so macOS reports the app as **damaged**. The familiar
+right-click → Open escape hatch does not help: that one is for the different "unidentified
+developer" case. Notarising is the only thing that fixes it.
 
-Two things follow:
+Two consequences worth knowing before you hit them:
 
 - The certificate must be **Developer ID Application**. An *Apple Development* certificate
-  signs successfully and then fails notarisation, which is the worst of both outcomes.
+  signs successfully and is then rejected by notarisation — the worst of both outcomes, and
+  the one that produces the damaged-app report. `Scripts/notarize.sh` checks for this case
+  specifically and says so rather than letting you find out at the end.
 - The ticket is stapled into the bundle before it is zipped, so a first launch with no
   network still validates.
 
-`Scripts/cask-notarised.py` removes the quarantine workaround from the cask; the workflow
-runs it on every release, so the first notarised build drops it automatically.
+`Scripts/cask-notarised.py` strips the cask's quarantine workaround; `release.sh` runs it on
+every release, so the first notarised build drops it automatically.
 
-## Secrets
+## One-time setup
 
-The workflow needs these on `PandelisZ/codex-remote`. The names match `RoderAI/roder`, so
-the same values work unchanged — but GitHub never discloses a stored secret, so they have to
-come from wherever the originals are kept.
+### 1. A Developer ID Application certificate
 
-| Secret | What it is |
-|---|---|
-| `APPLE_CERTIFICATE_BASE64` | Developer ID Application `.p12`, base64 |
-| `APPLE_CERTIFICATE_PASSWORD` | the password for that `.p12` |
-| `APPLE_NOTARIZE_KEY_BASE64` | App Store Connect API key `.p8`, base64 |
-| `APPLE_NOTARIZE_KEY_ID` | that key's ID |
-| `APPLE_NOTARIZE_ISSUER_ID` | the App Store Connect issuer ID |
-| `HOMEBREW_TAP_TOKEN` | a token with `contents: write` on `PandelisZ/homebrew-tap` |
-
-Setting them:
+Check what you have:
 
 ```bash
-gh secret set APPLE_CERTIFICATE_BASE64   --repo PandelisZ/codex-remote < cert.p12.base64
-gh secret set APPLE_CERTIFICATE_PASSWORD --repo PandelisZ/codex-remote
-gh secret set APPLE_NOTARIZE_KEY_BASE64  --repo PandelisZ/codex-remote < AuthKey.p8.base64
-gh secret set APPLE_NOTARIZE_KEY_ID      --repo PandelisZ/codex-remote
-gh secret set APPLE_NOTARIZE_ISSUER_ID   --repo PandelisZ/codex-remote
-gh secret set HOMEBREW_TAP_TOKEN         --repo PandelisZ/codex-remote
+security find-identity -v -p codesigning
 ```
 
-Where the base64 files come from, if they need regenerating — export the certificate from
-Keychain Access as a `.p12`, then:
+If there is no `Developer ID Application: …` line, either import the `.p12` you already have,
+or create one:
+
+> Xcode → Settings → Accounts → *your Apple ID* → Manage Certificates → **+** →
+> **Developer ID Application**
+
+Xcode generates the key locally and installs it. Creating one does not revoke an existing
+certificate, and builds already notarised stay valid.
+
+### 2. A notarytool credential profile
+
+`notarytool` prompts for the secret and stores it in the keychain, so it never passes through
+a script, a command line, or the environment. Do this once:
 
 ```bash
-base64 -i cert.p12 -o cert.p12.base64
-base64 -i AuthKey_XXXXXXXXXX.p8 -o AuthKey.p8.base64
+# With an Apple ID and an app-specific password from appleid.apple.com:
+xcrun notarytool store-credentials "codex-remote" \
+  --apple-id "you@example.com" --team-id "<TEAMID>" --password "<app-specific password>"
 ```
 
-The workflow fails with an explicit message if a secret is missing or if the certificate
-turns out not to be a Developer ID Application one, rather than producing an unsigned build
-and calling it a release.
+or, with an App Store Connect API key:
+
+```bash
+xcrun notarytool store-credentials "codex-remote" \
+  --key AuthKey_XXXXXXXXXX.p8 --key-id "<KEYID>" --issuer "<ISSUERID>"
+```
+
+The profile name is `codex-remote`; override it with `CODEX_REMOTE_NOTARY_PROFILE`.
+
+### 3. Push access to the tap
+
+`release.sh` pushes the cask bump to `PandelisZ/homebrew-tap` over SSH, so the usual `git`
+credentials cover it.
+
+## Checking the setup without cutting a release
+
+`Scripts/notarize.sh` runs standalone against an existing build:
+
+```bash
+Scripts/bundle.sh
+Scripts/notarize.sh
+```
+
+It reports exactly which of the two prerequisites is missing, and submits nothing until both
+are in place.
 
 ## Checking a release afterwards
 
 ```bash
-# The published build validates as notarised:
+# The published build validates as notarised, from a clean download:
 curl -sL https://github.com/PandelisZ/codex-remote/releases/latest/download/CodexRemote-0.5.0.zip -o /tmp/cr.zip
 ditto -x -k /tmp/cr.zip /tmp/cr && spctl -a -vvv -t install /tmp/cr/CodexRemote.app
 
@@ -82,4 +104,11 @@ shasum -a 256 /tmp/cr.zip
 
 # A clean install works:
 brew install --cask pandelisz/tap/codex-remote
+```
+
+If a submission is rejected, Apple's reason is in its log:
+
+```bash
+xcrun notarytool history --keychain-profile "codex-remote"
+xcrun notarytool log <submission-id> --keychain-profile "codex-remote"
 ```
