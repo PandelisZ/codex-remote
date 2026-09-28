@@ -29,7 +29,8 @@ cat > "$APP/Contents/Info.plist" <<PLIST
   <key>CFBundleDisplayName</key><string>Codex Remote</string>
   <key>CFBundleIdentifier</key><string>io.codexremote.app</string>
   <key>CFBundleExecutable</key><string>Codex Remote</string>
-  <key>CFBundleIconFile</key><string>Codex Remote</string>
+  <!-- The filename in Resources, not the display name: the rename swept this up too. -->
+  <key>CFBundleIconFile</key><string>CodexRemote</string>
   <key>CFBundlePackageType</key><string>APPL</string>
   <key>CFBundleShortVersionString</key><string>$VERSION</string>
   <key>CFBundleVersion</key><string>$VERSION</string>
@@ -63,11 +64,17 @@ else
 fi
 
 echo "▸ icon"
-ICONSET="$(swift "$ROOT/Scripts/make-icon.swift" "$ROOT/build" 2>/dev/null | tail -1)"
-if [ -d "$ICONSET" ]; then
-  iconutil -c icns "$ICONSET" -o "$APP/Contents/Resources/CodexRemote.icns" 2>/dev/null || true
-  rm -rf "$ICONSET"
+# make-icon.swift builds the .icns itself and prints its path. This used to expect an
+# iconset directory and ran iconutil here; when the script changed, the `-d` test quietly
+# failed and `|| true` swallowed it, so every build since shipped whatever stale icns was
+# left in Resources. Hence no redirection and no `|| true`: a broken icon fails the build.
+ICNS="$(swift "$ROOT/Scripts/make-icon.swift" "$ROOT/build" | tail -1)"
+if [ ! -f "$ICNS" ]; then
+  echo "  make-icon.swift did not produce an .icns (got: $ICNS)" >&2
+  exit 1
 fi
+cp "$ICNS" "$APP/Contents/Resources/CodexRemote.icns"
+echo "  $(du -h "$ICNS" | awk '{print $1}')"
 
 # Signing.
 #
