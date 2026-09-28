@@ -65,7 +65,8 @@ echo "  $IDENTITY"
 # ---------------------------------------------------------------- the credentials
 
 say "Checking the notarytool credential profile '$PROFILE'"
-if ! xcrun notarytool history --keychain-profile "$PROFILE" --limit 1 >/dev/null 2>&1; then
+# No --limit: notarytool 1.1.2, which ships with current Xcode, does not accept it.
+if ! xcrun notarytool history --keychain-profile "$PROFILE" >/dev/null 2>&1; then
   cat >&2 <<EOF
 
 ✗ No usable notarytool profile called '$PROFILE'.
