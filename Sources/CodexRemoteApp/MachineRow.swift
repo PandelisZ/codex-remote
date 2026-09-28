@@ -81,6 +81,11 @@ struct MachineRow: View {
                 .padding(.horizontal, Theme.Space.snug)
         }
         .onHover { isHovering = $0 }
+        .onAppear {
+            if ScreenshotFixtures.mode == "expanded", machine.name == "project-west" {
+                isExpanded = true
+            }
+        }
         .accessibilityElement(children: .contain)
         .accessibilityLabel("\(machine.name), \(presentation.spokenState)")
     }
@@ -157,7 +162,7 @@ struct MachineRow: View {
                 if machine.runs(.codex) { state.openInCodex(machine) }
                 else { state.openInClaude(machine) }
             }
-                .buttonStyle(PrimaryGlassButtonStyle())
+                .nativeGlassButtonStyle()
                 .help(machine.runs(.codex) ? "Open a Codex session on \(machine.name)"
                                            : "Open \(machine.name) in Claude")
         }
@@ -346,26 +351,5 @@ struct ProviderBadge: View {
             .padding(.vertical, 1)
             .background(.quaternary, in: .capsule)
             .accessibilityLabel("provider \(kind.rawValue)")
-    }
-}
-
-/// The app's one prominent action. Liquid Glass on macOS 26, a bordered button below —
-/// used here and nowhere else, per Apple's "sparingly" rule.
-struct PrimaryGlassButtonStyle: ButtonStyle {
-    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
-
-    func makeBody(configuration: Configuration) -> some View {
-        let label = configuration.label
-            .font(.callout.weight(.medium))
-            .padding(.horizontal, Theme.Space.roomy)
-            .padding(.vertical, Theme.Space.snug)
-            .opacity(configuration.isPressed ? 0.7 : 1)
-
-        if #available(macOS 26.0, *), !reduceTransparency {
-            label.glassEffect(.regular.interactive(), in: .capsule)
-        } else {
-            label.background(.thinMaterial, in: .capsule)
-                .overlay(Capsule().strokeBorder(.separator))
-        }
     }
 }

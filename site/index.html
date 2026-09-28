@@ -5,7 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Codex Remote</title>
 <meta name="description" content="A macOS menu bar app that provisions a cloud machine and wires it up as a remote Codex or Claude Code agent. Open source, not affiliated with OpenAI.">
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%238C1D2C'/><rect x='6' y='5.5' width='20' height='5' rx='1.6' fill='%23F6F2EC'/><rect x='6' y='13.5' width='20' height='5' rx='1.6' fill='%23F6F2EC'/><rect x='6' y='21.5' width='20' height='5' rx='1.6' fill='%23F6F2EC'/><circle cx='22' cy='8' r='1.7' fill='%2352C77E'/></svg>">
+<link rel="icon" type="image/png" href="img/app-icon.png">
+<link rel="apple-touch-icon" href="img/app-icon.png">
 
 <meta property="og:title" content="Codex Remote">
 <meta property="og:description" content="Give it a provider token. It builds the machine, installs the agent, and hands it to the tools you already use.">
@@ -43,6 +44,7 @@
   --rule-2:   #d9d5cc;
 
   --cover:    #8c1d2c;
+  --cover-text: #8c1d2c;
   --cover-ink:#f4efe7;
 
   --caution:  #8a4f07;
@@ -62,7 +64,7 @@
     --stock: #171513; --stock-2: #1f1c19;
     --ink: #eae4da; --ink-2: #b6ac9e; --ink-3: #8b8174;
     --rule: #37322c; --rule-2: #272320;
-    --cover: #a8253a; --cover-ink: #f7f1e9;
+    --cover: #a8253a; --cover-text: #d65a6e; --cover-ink: #f7f1e9;
     --caution: #d59a3e; --ok: #6fae7d;
   }
 }
@@ -71,7 +73,7 @@
   --stock: #171513; --stock-2: #1f1c19;
   --ink: #eae4da; --ink-2: #b6ac9e; --ink-3: #8b8174;
   --rule: #37322c; --rule-2: #272320;
-  --cover: #a8253a; --cover-ink: #f7f1e9;
+  --cover: #a8253a; --cover-text: #d65a6e; --cover-ink: #f7f1e9;
   --caution: #d59a3e; --ok: #6fae7d;
 }
 
@@ -159,7 +161,7 @@ code { font-family: var(--mono); font-variant-ligatures: none; }
 @media (max-width: 940px) { .spread { grid-template-columns: 1fr; gap: 32px; } }
 
 .pitch { font-size: clamp(22px, 2.6vw, 28px); line-height: 1.38; margin: 0; max-width: 24ch; }
-.pitch em { font-style: normal; color: var(--cover); }
+.pitch em { font-style: normal; color: var(--cover-text); }
 .sub { margin: 18px 0 0; color: var(--ink-2); max-width: 46ch; }
 
 .proc { margin: 26px 0 0; padding: 0; list-style: none; counter-reset: step; }
@@ -172,7 +174,7 @@ code { font-family: var(--mono); font-variant-ligatures: none; }
 .proc > li:last-child { border-bottom: 1px solid var(--ink); }
 .proc > li::before {
   content: counter(step) ".";
-  font-family: var(--mono); font-size: 14px; color: var(--cover); padding-top: 0.42em;
+  font-family: var(--mono); font-size: 14px; color: var(--cover-text); padding-top: 0.42em;
   font-variant-numeric: tabular-nums;
 }
 .proc .what { font-family: var(--display); font-size: 15.5px; font-weight: 500; }
@@ -208,8 +210,8 @@ code { font-family: var(--mono); font-variant-ligatures: none; }
 .dl:hover { filter: brightness(1.12); }
 
 figure { margin: 0; }
-/* No border or fill: the capture is a transparent PNG of a window that already has its
-   own rounded chrome, so a square frame cuts across its corners. */
+/* Screens are captured from the running Mac app, with window chrome cropped where it
+   would compete with the manual's own figure treatment. */
 figure img { display: block; width: 100%; height: auto; }
 figcaption {
   font-family: var(--display); font-size: 13.5px; color: var(--ink-2);
@@ -370,12 +372,12 @@ figcaption b { font-weight: 600; color: var(--ink); }
     </div>
 
     <figure>
-      <img src="img/01-panel.png" width="768" height="512"
-           alt="The Codex Remote menu bar panel. Two machines: demo on Hetzner, paused; perf-1 on AWS, idle, showing CPU 2 percent and RAM 0.4 of 1.9 GB, with a power toggle and an Open button. A row underneath offers a one-off Claude Code sign-in.">
+      <img src="img/01-panel.png" width="768" height="442"
+           alt="Codex Remote with two sample machines: build-eu on Hetzner is paused; project-west on AWS has two running sessions. The panel shows health, CPU, memory, power controls, and an Open button.">
       <figcaption>
-        <b>Figure 1.</b> Every machine in one list, whichever cloud it is on. The dot says
-        what it is doing &mdash; idle, or how many agent sessions are running &mdash; so you
-        can see at a glance whether stopping one would interrupt anything.
+        <b>Figure 1.</b> Every machine in one list, whichever cloud it is on. Status shows
+        whether a machine is paused, idle, or running agent sessions, so you can see whether
+        stopping it would interrupt work.
       </figcaption>
     </figure>
   </div>
@@ -484,22 +486,22 @@ figcaption b { font-weight: 600; color: var(--ink); }
   <div class="sec">
     <div class="no">&mdash;</div>
     <div>
-      <h2>The whole of it, in four screens</h2>
-      <p class="lede">Real captures, not mock-ups.</p>
+      <h2>The whole of it, in five screens</h2>
+      <p class="lede">Real app captures with illustrative machine data.</p>
 
       <div class="plates">
         <figure>
-          <img src="img/03-new-machine.png" width="1000" height="1224"
-               alt="The New machine window. Provider Hetzner, a name field, region Nuremberg, size cx23 with 2 vCPU, 4 GB, 40 GB at 6.59 euro a month, image Ubuntu 26.04. Codex and Claude Code each have a toggle and a sentence explaining how they are reached. The footer reads: About 6.59 euro a month while it runs.">
+          <img src="img/03-new-machine.png" width="1000" height="1322"
+               alt="The New machine window with the sample name research-box. Hetzner, Nuremberg, a two-vCPU server at 6.59 euro a month, and Ubuntu 24.04 LTS are selected. Codex and Claude Code are enabled; Advanced options are collapsed.">
           <figcaption>
-            <b>Figure 2.</b> Pick a cloud, a size and which agents you want. The price is on
-            the button before you press it, not in a bill at the end of the month.
+            <b>Figure 2.</b> Pick a cloud, a size and which agents you want. The estimated
+            price sits beside Create before you press it.
           </figcaption>
         </figure>
 
         <figure>
-          <img src="img/02-expanded.png" width="768" height="804"
-               alt="An expanded machine row for perf-1 on AWS, listing its endpoint, SSH alias, address, workspace, server type and Codex version, with buttons to open it in Codex or Claude.">
+          <img src="img/02-expanded.png" width="768" height="734"
+               alt="An expanded sample machine row for project-west on AWS, listing its endpoint, SSH alias, address, workspace, server type and Codex version, with buttons to open it in Codex or Claude.">
           <figcaption>
             <b>Figure 3.</b> Everything you would otherwise keep in a note: the SSH alias,
             the workspace path, the tunnel endpoint. Open in Codex, or in Claude.
@@ -508,11 +510,20 @@ figcaption b { font-weight: 600; color: var(--ink); }
 
         <figure>
           <img src="img/04-settings.png" width="1160" height="1096"
-               alt="The Providers settings pane, listing a Hetzner and an AWS account, each with how many machines it has, and a Registry URL field pointing at codexremote.io/registry.json.">
+               alt="The Providers settings pane with sample Hetzner and AWS accounts, one machine each, an Add account button, and the registry URL field.">
           <figcaption>
             <b>Figure 4.</b> Tokens go to your login keychain, never to a file or to
             OpenTofu&rsquo;s state. The registry is a URL, so a cloud can be added without
             waiting for a release.
+          </figcaption>
+        </figure>
+
+        <figure>
+          <img src="img/05-empty-state.png" width="768" height="868"
+               alt="The first-run panel shows the app icon, a Connect provider button, the steps to create a machine, and a Copy setup prompt button for an agent to guide setup.">
+          <figcaption>
+            <b>Figure 5.</b> Start in the app, or copy a prompt into Codex or Claude and let
+            your agent walk through each choice with you.
           </figcaption>
         </figure>
       </div>

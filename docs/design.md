@@ -16,7 +16,7 @@ So glass appears in exactly three places:
 | Surface | Why it qualifies |
 |---|---|
 | The popover's action bar | The control layer of the popover, grouped in one `GlassEffectContainer` |
-| A machine's **Open** button | The single most important functional element in the app |
+| A machine's **Open** button | The single most important functional element in the app; it uses the system glass button style on macOS 26 |
 | Window toolbars | The system applies it; Codex Remote only adds `scrollEdgeEffectStyle(.soft)` so content blurs under them |
 
 Everything else — the machine list, the forms, the activity log — is content, and sits on
@@ -31,7 +31,8 @@ and the guidance points text-heavy components at regular.
 macOS 26, a `.thinMaterial` on macOS 15, and an opaque `.regularMaterial` whenever
 **Reduce Transparency** is on — Apple notes glass changes appearance under that setting and
 under Increase Contrast, and dropping to an opaque fill is the safe reading for a custom
-control.
+control. The machine's Open button uses native `.glass` and `.bordered` styles instead of
+recreating their pressed and accessibility states.
 
 ## Status is never colour alone
 

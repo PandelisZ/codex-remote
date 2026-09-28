@@ -45,6 +45,11 @@ final class AppState: ObservableObject {
 
     init() {
         AppState.shared = self
+        if ScreenshotFixtures.enabled {
+            accounts = ScreenshotFixtures.accounts
+            machines = ScreenshotFixtures.machines
+            return
+        }
         refresh()
         observerToken = manager.observe { [weak self] event in
             Task { @MainActor in self?.handle(event) }
@@ -146,6 +151,7 @@ final class AppState: ObservableObject {
     }
 
     func refresh() {
+        if ScreenshotFixtures.enabled { return }
         machines = manager.machines
         accounts = manager.accounts
         settings = manager.settings
@@ -231,7 +237,8 @@ final class AppState: ObservableObject {
 
     func capabilities(for accountID: UUID,
                       region: String? = nil) async throws -> ProviderCapabilities {
-        try await manager.capabilities(for: accountID, region: region)
+        if ScreenshotFixtures.enabled { return ScreenshotFixtures.capabilities }
+        return try await manager.capabilities(for: accountID, region: region)
     }
 
     func updateSettings(_ transform: @escaping (inout AppSettings) -> Void) {

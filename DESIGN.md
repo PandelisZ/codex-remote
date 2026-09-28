@@ -33,6 +33,7 @@ neutral ground. The board red carries the masthead and the colophon end to end.
 | Token | Light | Dark | Role |
 |---|---|---|---|
 | `--cover` | `#8c1d2c` | `#a8253a` | The manual's board. Masthead, colophon, procedure numerals, selection |
+| `--cover-text` | `#8c1d2c` | `#d65a6e` | Legible board red for text on dark stock |
 | `--stock` | `#edebe6` | `#171513` | Paper. Neutral warm-grey, deliberately not cream |
 | `--stock-2` | `#e4e1da` | `#1f1c19` | A tinted panel on the same sheet: command blocks |
 | `--ink` | `#1a1714` | `#eae4da` | Body |

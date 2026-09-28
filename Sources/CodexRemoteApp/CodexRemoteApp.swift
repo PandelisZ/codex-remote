@@ -111,6 +111,7 @@ func openPanelWindow() {
 /// guaranteed to be instantiated at launch.
 private struct MenuBarLabel: View {
     @Environment(\.openWindow) private var openWindow
+    @Environment(\.openSettings) private var openSettings
     let symbol: String
     let count: Int
     let spoken: String
@@ -127,7 +128,14 @@ private struct MenuBarLabel: View {
             }
         }
         .accessibilityLabel(spoken)
-        .task { PanelWindow.shared.open = { openWindow(id: CodexRemoteApp.panelWindowID) } }
+        .task {
+            PanelWindow.shared.open = { openWindow(id: CodexRemoteApp.panelWindowID) }
+            if ScreenshotFixtures.mode == "new-machine" {
+                openWindow(id: CodexRemoteApp.newMachineWindowID)
+            } else if ScreenshotFixtures.mode == "settings" {
+                openSettings()
+            }
+        }
     }
 }
 
@@ -142,10 +150,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         // Quietly: a laptop opened on a plane should not greet its owner with a failed
         // network call. Errors only surface when the check was asked for.
-        DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
-            AppState.shared?.checkForUpdate(quietly: true)
+        if !ScreenshotFixtures.enabled {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+                AppState.shared?.checkForUpdate(quietly: true)
+            }
         }
-        if showInDock {
+        if showInDock, ScreenshotFixtures.mode != "new-machine",
+           ScreenshotFixtures.mode != "settings" {
             // Give the scene graph a moment to register the window before asking for it.
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
                 openPanelWindow()

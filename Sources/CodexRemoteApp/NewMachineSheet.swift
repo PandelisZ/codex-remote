@@ -19,6 +19,7 @@ struct NewMachineSheet: View {
     @State private var idleShutdown = 0
     @State private var extraPackages = ""
     @State private var postSetup = ""
+    @State private var showAdvancedOptions = false
 
     @State private var capabilities: ProviderCapabilities?
     @State private var loadingCapabilities = false
@@ -135,7 +136,8 @@ struct NewMachineSheet: View {
                     }
                 }
 
-                Section("Options") {
+                Section {
+                    DisclosureGroup("Advanced options", isExpanded: $showAdvancedOptions) {
                         TextField("Workspace path", text: $workspace,
                                   prompt: Text(state.settings.defaultWorkspacePath))
                             .help("Directory new Codex tasks start in on the machine.")
@@ -179,6 +181,7 @@ struct NewMachineSheet: View {
                             Text("Runs as root in the workspace at the end of setup — clone repos, install toolchains, drop in dotfiles.")
                                 .font(.caption2).foregroundStyle(.tertiary)
                         }
+                    }
                 }
             }
             .formStyle(.grouped)
@@ -212,9 +215,10 @@ struct NewMachineSheet: View {
             .padding(.horizontal, Theme.Space.gutter + Theme.Space.tight)
             .padding(.vertical, Theme.Space.roomy)
         }
-        .frame(width: 500, height: 580)
+        .frame(width: 500, height: 660)
         .navigationTitle("New machine")
         .task {
+            if ScreenshotFixtures.mode == "new-machine" { name = "research-box" }
             accountID = accountID ?? state.accounts.first?.id
             workspace = state.settings.defaultWorkspacePath
             await loadCapabilities()

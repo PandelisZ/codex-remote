@@ -9,9 +9,9 @@ import CodexRemoteKit
 /// layer, and to "use Liquid Glass effects sparingly … Limit these effects to the most
 /// important functional elements in your app."
 ///
-/// So in Codex Remote, glass is used in exactly three places — the popover's action bar, the
-/// primary "Open" action on a machine, and the menu bar status pill. The machine list, the
-/// forms and the activity log are content and stay on standard materials.
+/// So in Codex Remote, glass is used on the popover's action bar, the primary "Open"
+/// action on a machine, and the system's window toolbars. The machine list, forms and
+/// activity log are content and stay on standard materials.
 enum Theme {
     static let popoverWidth: CGFloat = 384
 
@@ -71,6 +71,17 @@ private struct GlassSurface<S: Shape>: ViewModifier {
 }
 
 extension View {
+    /// Let the system supply the button's glass, shape, pressed state, and accessibility
+    /// adaptations rather than drawing those parts inside a custom ButtonStyle.
+    @ViewBuilder
+    func nativeGlassButtonStyle() -> some View {
+        if #available(macOS 26.0, *) {
+            self.buttonStyle(.glass)
+        } else {
+            self.buttonStyle(.bordered)
+        }
+    }
+
     /// Liquid Glass for a control-layer surface. Use sparingly — see `Theme`.
     func glassSurface(_ shape: some Shape, tint: Color? = nil, interactive: Bool = false) -> some View {
         modifier(GlassSurface(shape: shape, tint: tint, interactive: interactive))

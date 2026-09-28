@@ -24,12 +24,14 @@ struct MenuBarView: View {
 
             if state.machines.isEmpty {
                 emptyState
-            } else if state.machines.count > 7 {
-                ScrollView { machineList }
-                    .frame(height: 460)
-                    .softScrollEdges()
             } else {
-                machineList
+                ScrollView {
+                    machineList
+                }
+                .scrollBounceBehavior(.basedOnSize)
+                .frame(maxHeight: machineListLimit)
+                .fixedSize(horizontal: false, vertical: true)
+                .softScrollEdges()
             }
 
             if case .available(let release) = state.updateOutcome {
@@ -80,6 +82,12 @@ struct MenuBarView: View {
         return parts.joined(separator: " · ")
     }
 
+    /// Keep the title and actions in view even when a short list contains expanded rows,
+    /// a long error, or an inline removal confirmation.
+    private var machineListLimit: CGFloat {
+        min(460, max(220, (NSScreen.main?.visibleFrame.height ?? 800) - 280))
+    }
+
     // MARK: - Content
 
     private var machineList: some View {
@@ -107,54 +115,96 @@ struct MenuBarView: View {
     }
 
     private var emptyState: some View {
-        VStack(spacing: Theme.Space.normal) {
-            Image(systemName: "sparkles.rectangle.stack")
-                .font(.system(size: 28))
-                .foregroundStyle(.tertiary)
-                .accessibilityHidden(true)
-
-            Text("No machines yet")
-                .font(.subheadline.weight(.medium))
-
-            Text(state.accounts.isEmpty
-                 ? "Add a provider token in Settings, then spin one up. Codex Remote builds the server, installs Codex on it, and adds it to Codex's Remotes."
-                 : "Create one and Codex Remote will build the server, install Codex on it, and wire it into Codex.")
-                .font(.caption)
-                .multilineTextAlignment(.center)
-                .foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
-
-            HStack(spacing: Theme.Space.snug) {
-                if state.accounts.isEmpty {
-                    Button("Open Settings…") {
-                        NSApp.activate(ignoringOtherApps: true)
-                        openSettings()
-                    }
-                    .controlSize(.small)
+        VStack(alignment: .leading, spacing: Theme.Space.gutter) {
+            HStack(spacing: Theme.Space.normal) {
+                if let icon = NSImage(named: NSImage.applicationIconName) {
+                    Image(nsImage: icon)
+                        .resizable()
+                        .frame(width: 44, height: 44)
+                        .accessibilityHidden(true)
+                } else {
+                    Image(systemName: "server.rack")
+                        .font(.system(size: 32))
+                        .frame(width: 44, height: 44)
+                        .accessibilityHidden(true)
                 }
 
-                // Picking a cloud, a region and a size are questions, not a form to guess
-                // at. Rather than walking someone through the UI, hand their agent a brief
-                // and let it ask them one at a time.
+                VStack(alignment: .leading, spacing: Theme.Space.hairline) {
+                    Text("Set up your first machine")
+                        .font(.headline)
+                    Text("A cloud server for Codex, Claude Code, or both.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            VStack(alignment: .leading, spacing: Theme.Space.normal) {
+                if state.accounts.isEmpty {
+                    setupStep(1, title: "Connect a cloud account",
+                              detail: "Add a provider token. It stays in your Mac's keychain.",
+                              action: {
+                                  NSApp.activate(ignoringOtherApps: true)
+                                  openSettings()
+                              })
+                } else {
+                    setupStep(1, title: "Cloud account connected",
+                              detail: "Your provider is ready to create a machine.")
+                }
+                setupStep(2, title: "Create a machine",
+                          detail: "Choose a region, size, and agents. Review the price before creating it.")
+            }
+
+            Divider()
+
+            VStack(alignment: .leading, spacing: Theme.Space.snug) {
+                Text("Want your agent to walk you through it?")
+                    .font(.subheadline.weight(.medium))
+                Text("Copy the setup prompt and paste it into Codex or Claude. It will ask one question at a time and show you the command before creating a server.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+
                 Button {
                     state.copySetupPrompt()
                 } label: {
-                    Label(promptCopied ? "Copied — paste it to your agent" : "Copy prompt for your agent",
+                    Label(promptCopied ? "Copied — paste into your agent" : "Copy setup prompt",
                           systemImage: promptCopied ? "checkmark" : "doc.on.doc")
                 }
+                .buttonStyle(.borderedProminent)
                 .controlSize(.small)
-                .help("Copies a brief that walks an agent through setting this up with you")
+                .help("Copy instructions for an agent to help set up a machine")
             }
-            .onChange(of: state.setupPromptCopiedAt) { _, _ in
-                withAnimation { promptCopied = true }
-                Task {
-                    try? await Task.sleep(nanoseconds: 2_400_000_000)
-                    withAnimation { promptCopied = false }
+        }
+        .padding(Theme.Space.gutter + Theme.Space.tight)
+        .onChange(of: state.setupPromptCopiedAt) { _, _ in
+            withAnimation { promptCopied = true }
+            Task {
+                try? await Task.sleep(nanoseconds: 2_400_000_000)
+                withAnimation { promptCopied = false }
+            }
+        }
+    }
+
+    private func setupStep(_ number: Int, title: String, detail: String,
+                           action: (() -> Void)? = nil) -> some View {
+        HStack(alignment: .top, spacing: Theme.Space.normal) {
+            Text("\(number)")
+                .font(.caption.weight(.semibold).monospacedDigit())
+                .foregroundStyle(.secondary)
+                .frame(width: 16, alignment: .leading)
+            VStack(alignment: .leading, spacing: Theme.Space.hairline) {
+                Text(title).font(.subheadline.weight(.medium))
+                Text(detail)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                if let action {
+                    Button("Connect provider…", action: action)
+                        .controlSize(.small)
+                        .padding(.top, Theme.Space.snug)
                 }
             }
         }
-        .padding(.horizontal, 28)
-        .padding(.vertical, 28)
     }
 
     // MARK: - Action bar (the control layer)
