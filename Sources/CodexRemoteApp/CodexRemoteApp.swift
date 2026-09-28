@@ -142,8 +142,10 @@ private struct MenuBarLabel: View {
             PanelWindow.shared.open = { openWindow(id: CodexRemoteApp.panelWindowID) }
             if ScreenshotFixtures.mode == "new-machine" {
                 openWindow(id: CodexRemoteApp.newMachineWindowID)
+                NSApp.activate(ignoringOtherApps: true)
             } else if ScreenshotFixtures.mode == "settings" {
                 openSettings()
+                NSApp.activate(ignoringOtherApps: true)
             }
         }
     }

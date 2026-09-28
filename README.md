@@ -11,6 +11,8 @@ macOS 15+, Apple silicon or Intel. It lives in the menu bar, not the Dock.
 
 [codexremote.io](https://codexremote.io) · not affiliated with OpenAI or Anthropic.
 
+![Codex Remote showing build-eu paused on Hetzner and project-west running two sessions on AWS, with power controls and a New machine button.](site/img/01-panel.png)
+
 Give it a cloud provider token. It creates a server with **OpenTofu**, installs **Codex**,
 **Claude Code**, or both on it, and wires each one up the way it expects to be reached.
 They are reached in opposite directions: the Codex app SSHes out to the machine and starts
@@ -55,9 +57,21 @@ Point Codex Remote at your own registry for your own providers, including a home
 OpenTofu ships inside the app — there is nothing to install — and it is why the provider
 list is a list of data files rather than a list of hand-written API clients.
 
-![The Codex Remote window: build-eu on Hetzner is paused, while project-west on AWS is running two sessions. Power controls, Open, and New machine are visible.](site/img/01-panel.png)
+## App screenshots
 
-![The New machine window: provider, region, size with its monthly price, image, and a toggle for each agent.](site/img/03-new-machine.png)
+**First run:** connect a provider or copy a setup prompt for your agent.
+
+<img src="site/img/05-empty-state.png" alt="First-run window with Connect provider and Copy setup prompt buttons" width="384">
+
+**New machine:** choose a provider, region, size, image, and agents before creating a server.
+
+<img src="site/img/03-new-machine.png" alt="New machine window showing Hetzner server options and enabled Codex and Claude Code switches" width="500">
+
+**Providers:** manage cloud accounts and the provider registry in Settings.
+
+<img src="site/img/04-settings.png" alt="Providers settings with sample Hetzner and AWS accounts and a registry URL" width="580">
+
+[See all five app screenshots on the website.](https://codexremote.io/#s3b)
 
 ## What happens when you add a machine
 
