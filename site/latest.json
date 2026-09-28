@@ -1,8 +1,8 @@
 {
-  "version": "0.4.1",
-  "url": "https://github.com/PandelisZ/codex-remote/releases/download/v0.4.1/CodexRemote-0.4.1.zip",
-  "sha256": "e50c6abb9051a224806e0f491932b097f816a66222e29e4bd4716cee2bf2c02d",
-  "notes": "Fixes the packaging bug in 0.4.0.\n\n`Scripts/bundle.sh` still installed OpenTofu to `~/.codex/codex-remote/tofu`, the pre-0.4.0 location. On a machine that builds from source that recreated the directory 0.4.0 had just migrated away from, and put the bundled OpenTofu somewhere the app no longer looks.\n\nOnly affects building from source \u2014 installed copies fetch and verify OpenTofu themselves on first use \u2014 but it meant the 0.4.0 migration did not stay done.",
-  "publishedAt": "2026-09-27T23:48:06Z",
+  "version": "0.5.0",
+  "url": "https://github.com/PandelisZ/codex-remote/releases/download/v0.5.0/CodexRemote-0.5.0.zip",
+  "sha256": "b0f749e3b97ca8b9659ab74a06188b3fa4fcd02d4128acb8f1bc163985a23f41",
+  "notes": "Codex Remote 0.5.0 \u2014 the first notarised build, and Amazon EC2 working end to end.\n\nSigned with a Developer ID certificate and notarised by Apple, so a downloaded copy opens normally. Earlier builds were ad-hoc signed, which macOS reported as \"damaged\"; the Homebrew cask no longer has to strip the quarantine flag.\n\nAWS: six bugs, each of which only ever appeared on EC2.\n\n- A Mac named with a possessive (\"Pandelis's MacBook Pro\", with a curly apostrophe) put a non-ASCII character in the SSH key comment, and EC2's ImportKeyPair rejects the whole request. The security group description carried an em dash and failed the same way.\n- AMI ids are region-scoped, so asking for one region while taking the recommended image from another failed with \"collecting instance settings: couldn't find resource\".\n- A provision that failed before the instance existed never ran tofu destroy, orphaning the key pair and security group and making every retry fail with \"already exists\".\n- Amazon's Ubuntu images log in as ubuntu rather than root, so the bootstrap could not write to /etc.\n- set -euo pipefail plus a grep that matched nothing ended the script silently, reporting a connected machine as failed.\n\nAlso: a real app icon (and three bugs that meant it never shipped), a share card for codexremote.io, and a fix to the cask's zap list, which still named the pre-0.4 home.",
+  "publishedAt": "2026-09-28T04:03:24Z",
   "minimumSystemVersion": "15.0"
 }
