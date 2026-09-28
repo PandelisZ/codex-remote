@@ -62,6 +62,13 @@ EOF
 fi
 echo "  $IDENTITY"
 
+# The team id is the OU of the certificate's subject. Read rather than asked for, because
+# notarytool needs it and hunting it down on developer.apple.com is a detour.
+TEAM_ID="$(security find-certificate -c "$IDENTITY" -p 2>/dev/null \
+  | openssl x509 -noout -subject 2>/dev/null \
+  | sed -n 's/.*OU=\([A-Z0-9]\{10\}\).*/\1/p' | head -1)"
+[ -n "$TEAM_ID" ] && echo "  team $TEAM_ID"
+
 # ---------------------------------------------------------------- the credentials
 
 say "Checking the notarytool credential profile '$PROFILE'"
@@ -71,14 +78,16 @@ if ! xcrun notarytool history --keychain-profile "$PROFILE" >/dev/null 2>&1; the
 
 ✗ No usable notarytool profile called '$PROFILE'.
 
-  Create it once — notarytool prompts for the secret and stores it in the keychain, so it
-  never passes through this script, a command line, or the environment:
+  Create it once. notarytool prompts for the secret and stores it in the keychain, so it
+  never passes through this script, a command line, or the environment. The team id below
+  was read from the certificate above, so this is ready to paste:
 
-    # With an Apple ID and an app-specific password from appleid.apple.com:
     xcrun notarytool store-credentials "$PROFILE" \\
-      --apple-id "you@example.com" --team-id "<TEAMID>" --password "<app-specific password>"
+      --apple-id "<your Apple Developer account>" --team-id "${TEAM_ID:-<TEAMID>}"
 
-    # Or with an App Store Connect API key:
+  It will ask for an app-specific password — appleid.apple.com, Sign-In and Security,
+  App-Specific Passwords. Or use an App Store Connect key instead:
+
     xcrun notarytool store-credentials "$PROFILE" \\
       --key AuthKey_XXXXXXXXXX.p8 --key-id "<KEYID>" --issuer "<ISSUERID>"
 

@@ -60,10 +60,18 @@ certificate, and builds already notarised stay valid.
 a script, a command line, or the environment. Do this once:
 
 ```bash
-# With an Apple ID and an app-specific password from appleid.apple.com:
 xcrun notarytool store-credentials "codex-remote" \
-  --apple-id "you@example.com" --team-id "<TEAMID>" --password "<app-specific password>"
+  --apple-id "<your Apple Developer account>" --team-id "<TEAMID>"
 ```
+
+It asks for an app-specific password — appleid.apple.com, Sign-In and Security,
+App-Specific Passwords. You do not need to look the team id up: run `Scripts/notarize.sh`
+once the certificate is installed and it prints the command with the id already filled in,
+read from the certificate's own subject.
+
+Note the Apple ID here is the Apple Developer account, which is not necessarily the one
+signed in anywhere else on the machine. If the keychain happens to hold a certificate from
+another team, its id is that team's, not yours.
 
 or, with an App Store Connect API key:
 
