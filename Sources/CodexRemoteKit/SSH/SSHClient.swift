@@ -63,10 +63,31 @@ public struct SSHClient: Sendable {
         baseOptions + ["-p", String(port), "\(user)@\(host)"] + remoteCommand
     }
 
+    /// Wraps a remote command so it runs as root.
+    ///
+    /// Everything Codex Remote does on a machine needs root: apt, systemctl, writing units
+    /// into /etc, creating the `claude` account. Hetzner, DigitalOcean, Linode and Vultr all
+    /// hand out root directly, so this was invisible for a long time. Amazon's Ubuntu AMIs
+    /// do not — they log in as `ubuntu` and leave root locked — and the same bootstrap that
+    /// worked on every other cloud died on its first redirect into /etc with "Permission
+    /// denied".
+    ///
+    /// Done here rather than by threading `sudo` through six hundred lines of bootstrap,
+    /// where one missed line is a bug that only ever appears on one provider.
+    ///
+    /// `-n` on purpose: a host that unexpectedly wants a password fails immediately and says
+    /// so, instead of hanging forever on a prompt nobody can see.
+    func elevated(_ command: String) -> String {
+        guard user != "root" else { return command }
+        // The POSIX idiom for a single quote inside a single-quoted string.
+        let quoted = command.replacingOccurrences(of: "'", with: "'\\''")
+        return "sudo -n -- bash -c '\(quoted)'"
+    }
+
     /// Runs a command and returns its result without throwing on a non-zero exit.
     public func run(_ command: String, timeout: Double = 600) async throws -> CommandResult {
         guard let ssh = Shell.which("ssh") else { throw SSHError.missingTool("ssh") }
-        return try await Shell.run(ssh, sshArguments([command]), timeout: timeout)
+        return try await Shell.run(ssh, sshArguments([elevated(command)]), timeout: timeout)
     }
 
     @discardableResult
@@ -93,7 +114,9 @@ public struct SSHClient: Sendable {
         var lastResult: CommandResult?
 
         for attempt in 1...max(1, attempts) {
-            let result = try await Shell.run(ssh, sshArguments(["bash -s"]), stdin: script, timeout: timeout)
+            // sudo passes stdin through, so the script still arrives on the inner bash.
+            let result = try await Shell.run(ssh, sshArguments([elevated("bash -s")]),
+                                             stdin: script, timeout: timeout)
             if result.succeeded { return result }
             lastResult = result
 
@@ -151,7 +174,8 @@ public struct SSHClient: Sendable {
         let encoded = Data(script.utf8).base64EncodedString()
         let remote = "bash -c 'echo \(encoded) | base64 -d > /tmp/.codex-remote-script.$$ && "
             + "bash /tmp/.codex-remote-script.$$; status=$?; rm -f /tmp/.codex-remote-script.$$; exit $status'"
-        let result = try await Shell.run(ssh, sshArguments([remote]), stdin: input, timeout: timeout)
+        let result = try await Shell.run(ssh, sshArguments([elevated(remote)]), stdin: input,
+                                         timeout: timeout)
         guard result.succeeded else {
             throw SSHError.remoteFailure(command: label, exitCode: result.exitCode,
                                          output: result.combined)
@@ -167,7 +191,10 @@ public struct SSHClient: Sendable {
         // into the command line and secrets never appear in the remote process list.
         let remote = "bash -c 'set -euo pipefail; mkdir -p \"$(dirname \"$1\")\"; "
             + "umask 077; cat > \"$1\"; chmod \"$2\" \"$1\"' _ '\(path)' '\(mode)'"
-        let result = try await Shell.run(ssh, sshArguments([remote]), stdin: contents, timeout: 120)
+        // Elevated like every other remote call: these land in /etc and in another account's
+        // home, neither of which the login user can write on an image that is not root.
+        let result = try await Shell.run(ssh, sshArguments([elevated(remote)]), stdin: contents,
+                                         timeout: 120)
         guard result.succeeded else {
             throw SSHError.remoteFailure(command: "write \(path)", exitCode: result.exitCode,
                                          output: result.combined)

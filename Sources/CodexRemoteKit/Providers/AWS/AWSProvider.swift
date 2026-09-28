@@ -25,6 +25,18 @@ public struct AWSProvider: ComputeProvider {
         self.session = session
     }
 
+    /// The region this provider talks to. Exposed so a test can prove `scoped(toRegion:)`
+    /// actually re-aims it rather than silently returning the original.
+    public var regionForTesting: String { region }
+
+    /// AMI ids are region-scoped, so the catalogue has to be fetched from the region the
+    /// machine will actually be created in.
+    public func scoped(toRegion region: String) -> ComputeProvider {
+        guard !region.isEmpty, region != self.region else { return self }
+        return AWSProvider(accessKeyID: accessKeyID, secretAccessKey: secretAccessKey,
+                           sessionToken: sessionToken, region: region, session: session)
+    }
+
     public static let descriptor = ProviderDescriptor(
         kind: .aws,
         displayName: "Amazon EC2",

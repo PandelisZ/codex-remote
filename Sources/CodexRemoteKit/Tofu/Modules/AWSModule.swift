@@ -55,7 +55,8 @@ public extension TofuModule {
         # Shared across machines, hence the fixed name and the lifecycle guard.
         resource "aws_security_group" "ssh" {
           name        = "codex-remote-ssh"
-          description = "Codex Remote — inbound SSH for managed Codex machines"
+          # ASCII only: EC2 rejects a GroupDescription with anything outside it.
+          description = "Codex Remote - inbound SSH for managed Codex machines"
           vpc_id      = data.aws_vpc.default.id
 
           ingress {

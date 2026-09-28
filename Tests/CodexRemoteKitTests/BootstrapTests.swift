@@ -488,3 +488,41 @@ final class ProjectDiscoveryTests: XCTestCase {
         XCTAssertNoThrow(ProjectDiscovery.discover())
     }
 }
+
+/// The bootstrap runs under `set -euo pipefail`. That combination turns a `grep` that
+/// matches nothing into a silent, fatal error: grep exits 1, pipefail propagates it out of
+/// the command substitution, and `set -e` ends the script without printing anything —
+/// because grep prints nothing when it finds nothing.
+///
+/// It cost an afternoon. A machine that was connected and serving sessions was reported as
+/// "Claude Remote Control service failed" with empty stderr, and it reproduced only when
+/// the daemon had not yet written a session line, so any tracing slow enough to let one
+/// appear made it pass.
+final class BootstrapPipefailTests: XCTestCase {
+    private var claudeService: String {
+        BootstrapScript.installClaudeService(
+            BootstrapPlan(remotePort: 14561, hostname: "test"), sessionName: "test")
+    }
+
+    func testOptionalGrepsCannotKillTheScript() {
+        for line in claudeService.split(separator: "\n") {
+            let text = String(line)
+            guard text.contains("grep"), text.contains("$(") else { continue }
+            XCTAssertTrue(text.contains("|| true"),
+                          "a grep in a command substitution under `set -euo pipefail` ends the "
+                          + "script when it matches nothing: \(text.trimmingCharacters(in: .whitespaces))")
+        }
+    }
+
+    func testTheScriptStillSetsPipefail() {
+        // If this is ever dropped the test above stops meaning anything.
+        XCTAssertTrue(claudeService.contains("set -euo pipefail"))
+    }
+
+    func testTheSessionAndEnvironmentAreStillOptional() {
+        // They are extras: the machine is connected before either is read, so neither
+        // missing one should fail provisioning.
+        XCTAssertTrue(claudeService.contains(#"[ -n "$url" ] && echo "CLAUDE_SESSION_URL=$url""#))
+        XCTAssertTrue(claudeService.contains(#"[ -n "$env_id" ] && echo "CLAUDE_ENVIRONMENT_ID=$env_id""#))
+    }
+}

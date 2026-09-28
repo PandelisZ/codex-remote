@@ -90,3 +90,15 @@ public struct ProviderAccount: Codable, Hashable, Sendable, Identifiable {
         "\(id.uuidString).\(fieldKey)"
     }
 }
+
+public extension ProviderKind {
+    /// True when the image catalogue differs from region to region.
+    ///
+    /// Only EC2: an AMI id is issued by one region and means nothing in another, so the
+    /// "New machine" form has to re-read the catalogue when the region changes. Every other
+    /// cloud here names an image the same everywhere — `ubuntu-24-04-x64` is that string in
+    /// all of DigitalOcean's regions — and re-reading would cost a provider-plugin round
+    /// trip for nothing. Paired with `ComputeProvider.scoped(toRegion:)`, which is the
+    /// mechanism this flag decides when to use.
+    var catalogueVariesByRegion: Bool { self == .aws }
+}

@@ -48,10 +48,22 @@ public protocol ComputeProvider: Sendable {
 
     /// Login name on the provider's stock image for this OS family.
     func defaultSSHUser(forImage image: String) -> String
+
+    /// The same provider aimed at a different region.
+    ///
+    /// Most clouds name an image the same everywhere — `ubuntu-24-04-x64` is that string in
+    /// every DigitalOcean region — so the catalogue does not depend on where you ask from,
+    /// and the default returns `self`. EC2 is the exception: an AMI id is only valid in the
+    /// region that issued it, so asking the account's home region which image to use and
+    /// then launching somewhere else produces an instance pointing at an AMI that does not
+    /// exist there. `ProviderKind.catalogueVariesByRegion` says when this matters.
+    func scoped(toRegion region: String) -> ComputeProvider
 }
 
 public extension ComputeProvider {
     func defaultSSHUser(forImage image: String) -> String { "root" }
+
+    func scoped(toRegion region: String) -> ComputeProvider { self }
 
     /// Generic create-then-poll. Providers rarely need to override this.
     func waitForRunningInstance(

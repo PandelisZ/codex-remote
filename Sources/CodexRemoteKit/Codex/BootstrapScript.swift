@@ -557,13 +557,21 @@ public enum BootstrapScript {
           die "Claude Code did not reach Remote Control"
         fi
 
-        # The session URL is how you reach this machine from anywhere.
+        # Both of these are optional extras — the machine is already connected by the time we
+        # get here, and the `[ -n ... ]` guards below say as much. They still need `|| true`:
+        # the preamble sets `pipefail`, grep exits 1 when it matches nothing, and `set -e`
+        # then kills the script *silently*, because grep prints nothing when it finds
+        # nothing. That reported a healthy, connected machine as "Claude Remote Control
+        # service failed" with no explanation attached, and only when the daemon had not yet
+        # printed a session line — so it passed under any tracing slow enough to let one
+        # appear, and failed in ordinary use.
         clean="$(sed 's/\\x1b\\[[0-9;?]*[a-zA-Z]//g' /var/log/codex-remote-claude.log)"
-        url="$(printf '%s' "$clean" | grep -ao 'https://claude.ai/code/session_[A-Za-z0-9]*' | tail -1)"
+        # The session URL is how you reach this machine from anywhere.
+        url="$(printf '%s' "$clean" | grep -ao 'https://claude.ai/code/session_[A-Za-z0-9]*' | tail -1 || true)"
         [ -n "$url" ] && echo "CLAUDE_SESSION_URL=$url"
         # The environment is the machine itself — what the Remote Control menu lists, and
         # what you pick when starting a new project on it.
-        env_id="$(printf '%s' "$clean" | grep -ao 'env_[A-Za-z0-9]*' | tail -1)"
+        env_id="$(printf '%s' "$clean" | grep -ao 'env_[A-Za-z0-9]*' | tail -1 || true)"
         [ -n "$env_id" ] && echo "CLAUDE_ENVIRONMENT_ID=$env_id"
         say "Claude Code is live in your account"
         """

@@ -34,6 +34,43 @@ public struct TofuProvider: ComputeProvider {
         self.runner = runner
     }
 
+    /// Exposed so a test can prove `scoped(toRegion:)` reaches through the wrapper rather
+    /// than stopping at it, which is the bug these exist to pin.
+    public var environmentForTesting: [String: String] { environment }
+    public var runtimeRegionForTesting: String? { (runtime as? AWSProvider)?.regionForTesting }
+
+    /// Used by `scoped(toRegion:)`, which already has a built environment.
+    private init(kind: ProviderKind, module: TofuModule, environment: [String: String],
+                 runtime: ComputeProvider?, runner: TofuRunner) {
+        self.kind = kind
+        self.module = module
+        self.environment = environment
+        self.runtime = runtime
+        self.runner = runner
+    }
+
+    /// Re-aims both halves at another region.
+    ///
+    /// Forwarding to the runtime is the part that matters — `capabilities()` prefers the API
+    /// client, so without this an EC2 catalogue kept coming from the account's home region
+    /// however the caller asked, and the AMI chosen for a machine in us-west-1 was a
+    /// eu-west-2 id. `tofu apply` then failed with "collecting instance settings: couldn't
+    /// find resource", naming neither the image nor the region.
+    ///
+    /// The environment is re-aimed too, so a catalogue read through OpenTofu describes the
+    /// same place as one through the API. Which variable carries the region is read from the
+    /// module's own credential fields rather than hardcoded here.
+    public func scoped(toRegion region: String) -> ComputeProvider {
+        guard !region.isEmpty else { return self }
+        var scopedEnvironment = environment
+        if let variable = module.credentialFields
+            .first(where: { $0.key == "region" })?.environmentVariable {
+            scopedEnvironment[variable] = region
+        }
+        return TofuProvider(kind: kind, module: module, environment: scopedEnvironment,
+                            runtime: runtime?.scoped(toRegion: region), runner: runner)
+    }
+
     // MARK: - Credentials and catalogue
 
     public func verify() async throws -> ProviderIdentity {
@@ -165,8 +202,14 @@ public struct TofuProvider: ComputeProvider {
     public func destroyInstance(id: String) async throws {
         let workdir = workspace(for: id)
         guard runner.hasState(workdir: workdir) else {
-            // Created before the OpenTofu backend, or already torn down — fall back to the
-            // API client so "delete the server" still means what it says.
+            // A workspace key is a machine UUID; no cloud numbers its instances that way. So
+            // a UUID with no state means OpenTofu never got as far as creating anything, and
+            // handing it to the API client would just ask the cloud to delete an id that
+            // cannot exist.
+            if UUID(uuidString: id) != nil { return }
+            // Otherwise this is a real provider id from a machine created before the
+            // OpenTofu backend — fall back to the API client so "delete the server" still
+            // means what it says.
             if let runtime { try await runtime.destroyInstance(id: id) }
             return
         }

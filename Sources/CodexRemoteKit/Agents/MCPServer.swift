@@ -100,10 +100,12 @@ public actor MCPServer {
                  level: .read),
 
             Tool(name: "list_sizes",
-                 description: "Regions, machine sizes and images available on one provider account, with monthly prices. Call this before create_machine rather than guessing a size.",
+                 description: "Regions, machine sizes and images available on one provider account, with monthly prices. Call this before create_machine rather than guessing a size. Pass the region you intend to use: on EC2 the image ids differ per region.",
                  schema: ["type": "object",
                           "properties": ["account": ["type": "string",
-                                                     "description": "Account label from list_providers."]],
+                                                     "description": "Account label from list_providers."],
+                                         "region": ["type": "string",
+                                                    "description": "Optional. The region the machine will be created in. Images are listed for this region; on EC2 an image id from another region does not exist."]],
                           "required": ["account"]],
                  level: .read),
 
@@ -312,7 +314,8 @@ public actor MCPServer {
 
     private func sizes(_ arguments: [String: Any]) async throws -> String {
         let account = try account(labelled: try string(arguments, "account"))
-        let capabilities = try await manager.capabilities(for: account.id)
+        let capabilities = try await manager.capabilities(
+            for: account.id, region: arguments["region"] as? String)
 
         func mark(_ slug: String, _ recommended: String) -> String {
             slug == recommended ? "  (default)" : ""
@@ -393,7 +396,10 @@ public actor MCPServer {
     private func create(_ arguments: [String: Any]) async throws -> String {
         let account = try account(labelled: try string(arguments, "account"))
         let name = try string(arguments, "name")
-        let capabilities = try? await manager.capabilities(for: account.id)
+        // Scoped to the requested region before the image is defaulted from it: an EC2
+        // image id is only valid in the region that issued it.
+        let requestedRegion = arguments["region"] as? String
+        let capabilities = try? await manager.capabilities(for: account.id, region: requestedRegion)
 
         let agents: Set<AgentKind>
         if let requested = arguments["agents"] as? [String], !requested.isEmpty {
@@ -408,7 +414,7 @@ public actor MCPServer {
             name: name,
             accountID: account.id,
             providerKind: account.kind,
-            region: (arguments["region"] as? String) ?? capabilities?.recommendedRegion ?? "",
+            region: requestedRegion ?? capabilities?.recommendedRegion ?? "",
             size: (arguments["size"] as? String) ?? capabilities?.recommendedSize ?? "",
             image: (arguments["image"] as? String) ?? capabilities?.recommendedImage ?? "",
             workspacePath: (arguments["workspace"] as? String) ?? manager.settings.defaultWorkspacePath,

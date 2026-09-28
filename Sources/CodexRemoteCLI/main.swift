@@ -338,7 +338,10 @@ func runCreate(_ args: Args) async {
     var image = args.value("image")
     if region == nil || size == nil || image == nil {
         do {
-            let capabilities = try await manager.capabilities(for: account.id)
+            // Scoped to --region when it was given: an EC2 image id only exists in one
+            // region, so defaulting the image from the account's home region and then
+            // creating elsewhere fails at apply time with "couldn't find resource".
+            let capabilities = try await manager.capabilities(for: account.id, region: region)
             region = region ?? capabilities.recommendedRegion
             size = size ?? capabilities.recommendedSize
             image = image ?? capabilities.recommendedImage

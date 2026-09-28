@@ -284,12 +284,20 @@ public final class MachineManager: @unchecked Sendable {
             allowed: LoginShellEnvironment.declaredVariables(registry))
     }
 
-    public func capabilities(for accountID: UUID) async throws -> ProviderCapabilities {
+    /// Regions, sizes and images for an account.
+    ///
+    /// `region` matters when the caller already knows where the machine is going: on EC2 the
+    /// image ids differ per region, so the recommended image has to come from the target
+    /// region rather than the account's home one.
+    public func capabilities(for accountID: UUID,
+                             region: String? = nil) async throws -> ProviderCapabilities {
         guard let account = account(id: accountID) else {
             throw ProviderError.unsupported("unknown account", provider: "codex-remote")
         }
         await ensureShellEnvironmentLoaded()
-        return try await provider(for: account).capabilities()
+        let provider = try provider(for: account)
+        guard let region, !region.isEmpty else { return try await provider.capabilities() }
+        return try await provider.scoped(toRegion: region).capabilities()
     }
 
     // MARK: - Settings
@@ -453,11 +461,30 @@ public final class MachineManager: @unchecked Sendable {
         guard let machine = machine(id: id) else { return }
         TunnelManager.shared.stop(id)
 
-        if destroyInstance, let instanceID = machine.instanceID,
-           let account = account(id: machine.spec.accountID) {
+        if destroyInstance, let account = account(id: machine.spec.accountID) {
             let provider = try self.provider(for: account)
-            try await provider.destroyInstance(id: instanceID)
-            Log.shared.info("machines", "Destroyed \(account.kind) instance \(instanceID) for \(machine.name).")
+            if let instanceID = machine.instanceID {
+                try await provider.destroyInstance(id: instanceID)
+                Log.shared.info("machines", "Destroyed \(account.kind) instance \(instanceID) for \(machine.name).")
+            } else {
+                // No instance id means provisioning failed before the cloud reported one --
+                // but OpenTofu may already have created everything around it. On EC2 that is
+                // a key pair and a security group, and leaving them behind makes the *next*
+                // attempt fail with "already exists", which is how one bad provision used to
+                // poison a whole region.
+                //
+                // The workspace is keyed by the machine id (see ProvisionPipeline), so the
+                // state is findable without an instance id.
+                let workspaceKey = machine.id.uuidString.lowercased()
+                do {
+                    try await provider.destroyInstance(id: workspaceKey)
+                    Log.shared.info("machines", "Tore down the leftover \(account.kind) resources for \(machine.name).")
+                } catch {
+                    // Never block removing a machine that failed to build; say what is left
+                    // behind rather than failing silently.
+                    Log.shared.warn("machines", "\(machine.name) had no instance and its teardown failed (\(error.localizedDescription)). Anything OpenTofu created is still recorded in workspace \(workspaceKey).")
+                }
+            }
         } else if let address = machine.instance?.sshAddress {
             // Keeping the server: take the Codex Remote service back off it so it is left clean.
             let ssh = SSHClient(host: address, user: machine.sshUser,

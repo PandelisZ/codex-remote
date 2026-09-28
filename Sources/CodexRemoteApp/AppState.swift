@@ -229,8 +229,9 @@ final class AppState: ObservableObject {
         catch { banner = Banner(kind: .error, message: error.localizedDescription) }
     }
 
-    func capabilities(for accountID: UUID) async throws -> ProviderCapabilities {
-        try await manager.capabilities(for: accountID)
+    func capabilities(for accountID: UUID,
+                      region: String? = nil) async throws -> ProviderCapabilities {
+        try await manager.capabilities(for: accountID, region: region)
     }
 
     func updateSettings(_ transform: @escaping (inout AppSettings) -> Void) {

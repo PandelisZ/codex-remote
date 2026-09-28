@@ -71,7 +71,16 @@ struct NewMachineSheet: View {
                                     Text("\(item.name)  (\(item.slug))").tag(item.slug)
                                 }
                             }
-                            .onChange(of: region) { reconcileSelections() }
+                            // EC2 alone re-reads the catalogue: its image ids are
+                            // region-scoped, so the list on screen would otherwise offer
+                            // AMIs that do not exist where the machine is going.
+                            .onChange(of: region) {
+                                if account?.kind.catalogueVariesByRegion == true {
+                                    Task { await loadCapabilities() }
+                                } else {
+                                    reconcileSelections()
+                                }
+                            }
 
                             let offered = capabilities.sizes(in: region)
                             if offered.isEmpty {
@@ -241,7 +250,10 @@ struct NewMachineSheet: View {
         capabilityError = nil
         defer { loadingCapabilities = false }
         do {
-            let result = try await state.capabilities(for: accountID)
+            // Scoped to the region already chosen, so an EC2 image id belongs to the
+            // region the machine will actually be created in.
+            let result = try await state.capabilities(
+                for: accountID, region: region.isEmpty ? nil : region)
             capabilities = result
             if region.isEmpty || !result.regions.contains(where: { $0.slug == region }) {
                 region = result.recommendedRegion
