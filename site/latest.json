@@ -1,8 +1,8 @@
 {
-  "version": "0.5.1",
-  "url": "https://github.com/PandelisZ/codex-remote/releases/download/v0.5.1/CodexRemote-0.5.1.zip",
-  "sha256": "f2b5ac7e8bc65eae74ccf50e0ad8f30dec3dcff8cdfa29258cd35d977f9eb649",
-  "notes": "Codex Remote 0.5.1 \u2014 clearer first-machine setup with direct provider configuration and a copyable agent prompt; native Mac controls, a scrollable machine panel, and a simpler creation form. The app icon now appears in onboarding, and the website has fresh app captures.",
-  "publishedAt": "2026-09-28T08:38:15Z",
+  "version": "0.5.2",
+  "url": "https://github.com/PandelisZ/codex-remote/releases/download/v0.5.2/CodexRemote-0.5.2.zip",
+  "sha256": "582e584cdcc116f802097c1b0e8f1e8ded17eb39ba58a854ae059c32052e0fa1",
+  "notes": "Codex Remote 0.5.2 \u2014 the standalone window now uses its native title bar and toolbar, with a cleaner first-run layout. Updated website captures show the new window.",
+  "publishedAt": "2026-09-28T08:51:30Z",
   "minimumSystemVersion": "15.0"
 }
