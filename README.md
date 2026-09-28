@@ -141,7 +141,7 @@ codex-remote tofu validate                # check every module's HCL against its
 codex-remote claude-login <name>          # one-off browser sign-in for a machine's Claude Code
 codex-remote mcp                          # which MCP servers can travel, and why the rest can't
 codex-remote doctor                       # check the local half of the setup
-codex-remote rm <name> [--destroy]
+codex-remote rm <name> [--keep-server]   # deletes the server it created, unless told not to
 ```
 
 Only one process may own the tunnels at a time. If the menu bar app is running it holds

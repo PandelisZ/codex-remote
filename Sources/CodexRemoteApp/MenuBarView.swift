@@ -208,15 +208,15 @@ struct RemovalConfirmation: View {
     let machine: Machine
     let onChoice: (Bool?) -> Void
 
-    private var canDestroy: Bool {
-        machine.spec.providerKind != .existingHost && machine.instanceID != nil
-    }
+    // Not `instanceID != nil`: a provision that failed before the cloud returned an id can
+    // still have left a key pair and a security group behind, and those are ours to remove.
+    private var canDestroy: Bool { machine.ownsServer }
 
     var body: some View {
         VStack(alignment: .leading, spacing: Theme.Space.normal) {
             Label {
                 Text(canDestroy
-                     ? "Remove \(machine.name)? Deleting the server is permanent — everything on it goes with it."
+                     ? "Remove \(machine.name)? This deletes the server too — everything on it goes with it. Keeping it means it carries on billing to your \(machine.spec.providerKind) account."
                      : "Stop managing \(machine.name)? Codex Remote takes its Codex service off the machine and leaves the machine alone.")
                     .font(.caption)
                     .fixedSize(horizontal: false, vertical: true)
@@ -231,10 +231,14 @@ struct RemovalConfirmation: View {
                     .keyboardShortcut(.cancelAction)
                 Spacer()
                 if canDestroy {
-                    Button("Just remove") { onChoice(false) }
+                    // Deleting is the default action, because the alternative leaves a
+                    // server running that no longer appears in this list and keeps billing.
+                    // Keeping it stays available, but it is the deliberate choice now.
+                    Button("Keep the server") { onChoice(false) }
                         .controlSize(.small)
                     Button("Delete server", role: .destructive) { onChoice(true) }
                         .controlSize(.small)
+                        .keyboardShortcut(.defaultAction)
                 } else {
                     Button("Remove", role: .destructive) { onChoice(false) }
                         .controlSize(.small)

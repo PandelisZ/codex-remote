@@ -186,6 +186,20 @@ public struct Machine: Codable, Hashable, Sendable, Identifiable {
     public var spec: MachineSpec
     /// Provider-side id, absent until the instance has been created.
     public var instanceID: String?
+
+    /// True when Codex Remote created the server, and so is the one that should delete it.
+    ///
+    /// This is the difference between the two kinds of machine here. One Codex Remote built
+    /// from nothing and bills to the user's cloud account for as long as it exists; the
+    /// other the user already had, and Codex Remote is only a guest on. Removing the first
+    /// without deleting it leaves a server running that no longer appears anywhere in the
+    /// app — which is how a test machine quietly bills for a month. Deleting the second
+    /// would destroy something that was never ours.
+    ///
+    /// Deliberately not keyed on `instanceID`: a provision that failed before the cloud
+    /// returned one can still have left a key pair and a security group behind, recorded in
+    /// OpenTofu's state, and those are ours to clean up too.
+    public var ownsServer: Bool { spec.providerKind != .existingHost }
     public var instance: Instance?
     public var stage: ProvisionStage
     public var health: ConnectionHealth

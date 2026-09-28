@@ -52,7 +52,7 @@ func usage() -> String {
       reconnect <name>                   Restart the SSH tunnel
       up <name> | down <name>            Power the instance on or off
       rename <name> <new-name>
-      rm <name> [--destroy]              Remove; --destroy also deletes the server
+      rm <name> [--keep-server]          Remove, deleting the server it created
 
     OPENTOFU
       tofu status                        Where the bundled OpenTofu binary is
@@ -640,16 +640,31 @@ case "rename":
 
 case "rm", "remove":
     requireRuntimeOwnership("rm", because: .registry)
-    guard let name = args.positional.first else { fail("usage: codex-remote rm <name> [--destroy]") }
+    guard let name = args.positional.first else {
+        fail("usage: codex-remote rm <name> [--keep-server] [--yes]")
+    }
     let machine = findMachine(name)
-    let destroy = args.bool("destroy")
-    if destroy {
-        prompt("This permanently deletes the \(machine.spec.providerKind) server \(machine.instanceID ?? "?") — type the machine name to confirm: ")
+    // A server Codex Remote created goes with the machine unless told otherwise. Leaving it
+    // behind was the old default, and it left a server running that no longer appeared in
+    // the app while still billing to the user's cloud account. `--destroy` is still accepted
+    // so existing scripts keep working; it now says what already happens.
+    let destroy = machine.ownsServer && !args.bool("keep-server")
+    if destroy, !args.bool("yes") {
+        let what = machine.instanceID.map { "server \($0)" } ?? "server and anything OpenTofu created for it"
+        prompt("This permanently deletes the \(machine.spec.providerKind) \(what) — type the machine name to confirm: ")
         guard readLine(strippingNewline: true) == machine.name else { fail("aborted") }
     }
     do {
         try await manager.removeMachine(machine.id, destroyInstance: destroy)
-        print("✓ Removed \(machine.name)\(destroy ? " and destroyed its server" : " (server left running)")")
+        let outcome: String
+        if destroy {
+            outcome = " and destroyed its server"
+        } else if machine.ownsServer {
+            outcome = " — its server is still running and still billing"
+        } else {
+            outcome = " (the machine itself is yours and was left alone)"
+        }
+        print("✓ Removed \(machine.name)\(outcome)")
     } catch {
         fail(error.localizedDescription)
     }

@@ -461,6 +461,11 @@ public final class MachineManager: @unchecked Sendable {
         guard let machine = machine(id: id) else { return }
         TunnelManager.shared.stop(id)
 
+        // A machine Codex Remote did not create is never deleted, whatever the caller asked
+        // for. The user adopted an existing host; Codex Remote is a guest on it, and the
+        // most it should do on the way out is take its own service back off.
+        let destroyInstance = destroyInstance && machine.ownsServer
+
         if destroyInstance, let account = account(id: machine.spec.accountID) {
             let provider = try self.provider(for: account)
             if let instanceID = machine.instanceID {

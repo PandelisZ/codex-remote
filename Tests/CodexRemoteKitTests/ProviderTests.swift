@@ -348,3 +348,42 @@ final class SSHElevationCoverageTests: XCTestCase {
         }
     }
 }
+
+/// Removing a machine Codex Remote created has to take the server with it. The old default
+/// left it running: gone from the app, still billing, and findable only in the provider's
+/// own console. An adopted host is the opposite case and must never be deleted.
+final class ServerOwnershipTests: XCTestCase {
+    private func machine(_ kind: ProviderKind, instanceID: String? = "i-123") -> Machine {
+        Machine(spec: MachineSpec(name: "m", accountID: UUID(), providerKind: kind,
+                                  region: "r", size: "s", image: "i"),
+                instanceID: instanceID,
+                localPort: 14560, sshHostAlias: "codex-remote-m",
+                privateKeyPath: "/dev/null")
+    }
+
+    func testAMachineWeCreatedIsOursToDelete() {
+        for kind in [ProviderKind.aws, .hetzner, .digitalOcean, .linode, .vultr, .scaleway] {
+            XCTAssertTrue(machine(kind).ownsServer, "\(kind) machines are created by us")
+        }
+    }
+
+    func testAnAdoptedHostIsNeverOurs() {
+        XCTAssertFalse(machine(.existingHost).ownsServer)
+    }
+
+    func testAFailedProvisionIsStillOurs() {
+        // No instance id, but OpenTofu may have created a key pair and a security group.
+        // Gating on the id is what let those leak and poison the next attempt.
+        XCTAssertTrue(machine(.aws, instanceID: nil).ownsServer)
+    }
+
+    func testTheCLIDefaultsToDeletingWhatItCreated() throws {
+        let source = try String(
+            contentsOfFile: #filePath.replacingOccurrences(
+                of: "Tests/CodexRemoteKitTests/ProviderTests.swift",
+                with: "Sources/CodexRemoteCLI/main.swift"),
+            encoding: .utf8)
+        XCTAssertTrue(source.contains(#"let destroy = machine.ownsServer && !args.bool("keep-server")"#),
+                      "rm must delete the server by default for machines Codex Remote created")
+    }
+}
