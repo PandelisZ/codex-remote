@@ -217,6 +217,16 @@ figcaption {
 }
 figcaption b { font-weight: 600; color: var(--ink); }
 
+/* The walkthrough. Captures are of different windows at different sizes, so they are laid
+   out in a column with a shared measure rather than forced into a grid that would crop or
+   stretch them. */
+.plates { display: grid; gap: 34px; margin-top: 22px; }
+.plates figure { max-width: 560px; }
+@media (min-width: 900px) {
+  .plates { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 30px 36px; align-items: start; }
+  .plates figure:first-child { grid-row: span 2; }
+}
+
 .caution { margin-top: 26px; border-top: 2px solid var(--caution); border-bottom: 1px solid var(--rule); padding: 13px 0 15px; max-width: 68ch; }
 .caution .label {
   font-family: var(--display); font-size: 12px; font-weight: 700;
@@ -360,12 +370,12 @@ figcaption b { font-weight: 600; color: var(--ink); }
     </div>
 
     <figure>
-      <img src="img/panel.png" width="768" height="374"
-           alt="The Codex Remote menu bar panel. One machine named demo on Hetzner shows a blue idle indicator and the line idle, CPU 0 percent, RAM 0.5 of 7.6 GB, beside a power toggle and an Open button.">
+      <img src="img/01-panel.png" width="768" height="512"
+           alt="The Codex Remote menu bar panel. Two machines: demo on Hetzner, paused; perf-1 on AWS, idle, showing CPU 2 percent and RAM 0.4 of 1.9 GB, with a power toggle and an Open button. A row underneath offers a one-off Claude Code sign-in.">
       <figcaption>
-        <b>Figure 1.</b> A machine running on Hetzner. Blue means idle &mdash; nothing is
-        using it, so stopping it interrupts nothing. Green means sessions are running, and
-        the row says how many.
+        <b>Figure 1.</b> Every machine in one list, whichever cloud it is on. The dot says
+        what it is doing &mdash; idle, or how many agent sessions are running &mdash; so you
+        can see at a glance whether stopping one would interrupt anything.
       </figcaption>
     </figure>
   </div>
@@ -465,6 +475,46 @@ figcaption b { font-weight: 600; color: var(--ink); }
         <p><b>It connects.</b> Codex picks it up under Connections; Claude&nbsp;Code dials
            out and appears in your account. Pair it once and the box answers from your phone
            too.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="sheet leaf" id="s3b">
+  <div class="sec">
+    <div class="no">&mdash;</div>
+    <div>
+      <h2>The whole of it, in four screens</h2>
+      <p class="lede">Real captures, not mock-ups.</p>
+
+      <div class="plates">
+        <figure>
+          <img src="img/03-new-machine.png" width="1000" height="1224"
+               alt="The New machine window. Provider Hetzner, a name field, region Nuremberg, size cx23 with 2 vCPU, 4 GB, 40 GB at 6.59 euro a month, image Ubuntu 26.04. Codex and Claude Code each have a toggle and a sentence explaining how they are reached. The footer reads: About 6.59 euro a month while it runs.">
+          <figcaption>
+            <b>Figure 2.</b> Pick a cloud, a size and which agents you want. The price is on
+            the button before you press it, not in a bill at the end of the month.
+          </figcaption>
+        </figure>
+
+        <figure>
+          <img src="img/02-expanded.png" width="768" height="804"
+               alt="An expanded machine row for perf-1 on AWS, listing its endpoint, SSH alias, address, workspace, server type and Codex version, with buttons to open it in Codex or Claude.">
+          <figcaption>
+            <b>Figure 3.</b> Everything you would otherwise keep in a note: the SSH alias,
+            the workspace path, the tunnel endpoint. Open in Codex, or in Claude.
+          </figcaption>
+        </figure>
+
+        <figure>
+          <img src="img/04-settings.png" width="1160" height="1096"
+               alt="The Providers settings pane, listing a Hetzner and an AWS account, each with how many machines it has, and a Registry URL field pointing at codexremote.io/registry.json.">
+          <figcaption>
+            <b>Figure 4.</b> Tokens go to your login keychain, never to a file or to
+            OpenTofu&rsquo;s state. The registry is a URL, so a cloud can be added without
+            waiting for a release.
+          </figcaption>
+        </figure>
       </div>
     </div>
   </div>
