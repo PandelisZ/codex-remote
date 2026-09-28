@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=1270, initial-scale=1">
+  <title>Codex Remote — Product Hunt gallery</title>
+  <script>document.documentElement.dataset.card = new URLSearchParams(location.search).get('card') || '1';</script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&family=Source+Serif+4:ital,wght@0,400;0,500;1,400&display=swap');
+
+    :root { --red:#8c1d2c; --paper:#edebe6; --ink:#1a1714; --muted:#524c44; --rule:#c9c4ba; --cream:#f6f0e7; }
+    * { box-sizing:border-box; }
+    html, body { margin:0; width:1270px; height:760px; overflow:hidden; }
+    body { font-family:Archivo,Arial,sans-serif; background:var(--paper); color:var(--ink); }
+    .poster { display:none; position:relative; width:1270px; height:760px; overflow:hidden; }
+    html[data-card="1"] .poster[data-index="1"],
+    html[data-card="2"] .poster[data-index="2"],
+    html[data-card="3"] .poster[data-index="3"],
+    html[data-card="4"] .poster[data-index="4"],
+    html[data-card="5"] .poster[data-index="5"] { display:block; }
+    h1, h2, p { margin:0; }
+    h1 { font-size:75px; line-height:.97; letter-spacing:-.035em; font-weight:700; }
+    p { font-family:'Source Serif 4',Georgia,serif; font-size:30px; line-height:1.3; }
+    .meta { font-family:'JetBrains Mono',monospace; font-size:16px; letter-spacing:.14em; text-transform:uppercase; }
+    .folio { position:absolute; bottom:36px; left:56px; right:56px; display:flex; justify-content:space-between; align-items:center; font-family:'JetBrains Mono',monospace; font-size:15px; letter-spacing:.08em; text-transform:uppercase; }
+    .screen { display:block; width:100%; height:auto; }
+    .rule { height:1px; background:currentColor; opacity:.36; }
+    .label { font:600 19px Archivo,Arial,sans-serif; }
+
+    /* 1 — proposition and the actual machine list. */
+    .p1 { background:var(--paper); }
+    .p1 .field { position:absolute; inset:0 auto 0 0; width:520px; background:var(--red); color:var(--cream); padding:53px 52px; }
+    .p1 .brand { display:flex; align-items:center; gap:17px; font-weight:700; font-size:24px; }
+    .p1 .brand img { width:52px; height:52px; }
+    .p1 h1 { position:absolute; top:185px; left:52px; right:36px; }
+    .p1 p { position:absolute; top:495px; left:54px; right:45px; color:#f6d9d9; }
+    .p1 .proof { position:absolute; top:53px; left:562px; right:55px; color:var(--muted); display:flex; justify-content:space-between; }
+    .p1 .screen-wrap { position:absolute; top:153px; left:562px; width:655px; }
+    .p1 .screen-wrap img { border-radius:28px; }
+    .p1 .caption { position:absolute; top:595px; left:562px; right:55px; border-top:1px solid var(--rule); padding-top:18px; font-family:'Source Serif 4',Georgia,serif; font-size:25px; line-height:1.2; }
+    .p1 .folio { color:var(--cream); right:auto; width:408px; left:54px; }
+
+    /* 2 — the setup flow, photographed in the native Mac window. */
+    .p2 { background:var(--paper); }
+    .p2 .head { position:absolute; top:0; left:0; right:0; height:102px; background:var(--red); color:var(--cream); display:flex; align-items:center; justify-content:space-between; padding:0 58px; }
+    .p2 .head .brand { font-weight:700; font-size:25px; }
+    .p2 h1 { position:absolute; top:152px; left:57px; width:620px; font-size:73px; }
+    .p2 p { position:absolute; top:376px; left:59px; width:540px; color:var(--muted); }
+    .p2 .steps { position:absolute; top:525px; left:58px; width:560px; }
+    .p2 .step { display:flex; align-items:center; gap:20px; border-top:1px solid var(--rule); padding:14px 0; }
+    .p2 .step b { color:var(--red); font:500 17px 'JetBrains Mono',monospace; }
+    .p2 .step span { font-size:22px; font-weight:600; }
+    .p2 .photo { position:absolute; top:72px; left:747px; width:500px; height:692px; overflow:hidden; border-radius:20px 20px 0 0; }
+    .p2 .photo img { width:500px; height:692px; }
+
+    /* 3 — persistence and clear machine state. */
+    .p3 { background:var(--red); color:var(--cream); }
+    .p3 .photo { position:absolute; top:78px; left:58px; width:608px; }
+    .p3 .photo img { border-radius:25px; }
+    .p3 .copy { position:absolute; top:96px; left:720px; right:64px; }
+    .p3 h1 { font-size:69px; }
+    .p3 p { margin-top:54px; color:#f3d8d7; }
+    .p3 .fact { margin-top:51px; border-top:1px solid rgba(255,255,255,.45); padding-top:20px; font-size:20px; font-weight:600; line-height:1.35; }
+    .p3 .folio { color:#f3d8d7; }
+
+    /* 4 — a true command and a clear, unembellished project transfer model. */
+    .p4 { background:var(--paper); }
+    .p4 .top { position:absolute; left:56px; top:44px; right:56px; display:flex; justify-content:space-between; color:var(--muted); }
+    .p4 h1 { position:absolute; top:119px; left:54px; right:54px; font-size:82px; }
+    .p4 p { position:absolute; top:224px; left:58px; right:105px; font-size:33px; color:var(--muted); }
+    .p4 .terminal { position:absolute; top:371px; left:57px; right:57px; height:160px; background:#231f1d; color:var(--cream); border-radius:18px; padding:36px 43px; }
+    .p4 .terminal .title { font:500 15px 'JetBrains Mono',monospace; letter-spacing:.1em; text-transform:uppercase; color:#b6ac9e; }
+    .p4 .terminal .command { margin-top:22px; font:500 38px 'JetBrains Mono',monospace; letter-spacing:-.025em; }
+    .p4 .terminal .prompt { color:#de7182; }
+    .p4 .route { position:absolute; top:582px; left:57px; right:57px; display:grid; grid-template-columns:1fr 90px 1fr; align-items:start; border-top:1px solid var(--rule); padding-top:24px; }
+    .p4 .route .big { font-size:26px; font-weight:700; }
+    .p4 .route .small { margin-top:5px; font-family:'Source Serif 4',Georgia,serif; font-size:20px; color:var(--muted); }
+    .p4 .route .arrow { color:var(--red); font-size:45px; line-height:1; text-align:center; }
+    .p4 .folio { color:var(--muted); }
+
+    /* 5 — first-run invitation and the app's real copy-prompt affordance. */
+    .p5 { background:var(--red); color:var(--cream); }
+    .p5 .copy { position:absolute; top:72px; left:58px; width:555px; }
+    .p5 h1 { font-size:75px; }
+    .p5 p { margin-top:39px; color:#f3d8d7; font-size:29px; }
+    .p5 .steps { margin-top:60px; width:520px; }
+    .p5 .step { border-top:1px solid rgba(255,255,255,.4); display:flex; gap:19px; padding:15px 0; font-size:21px; font-weight:600; }
+    .p5 .step b { font:500 17px 'JetBrains Mono',monospace; color:#f2c4c8; }
+    .p5 .photo { position:absolute; top:81px; left:700px; width:512px; }
+    .p5 .photo img { border-radius:25px; }
+    .p5 .folio { color:#f3d8d7; }
+  </style>
+</head>
+<body>
+  <article class="poster p1" data-index="1" aria-label="Codex Remote product overview">
+    <div class="field">
+      <div class="brand"><img src="../../site/img/app-icon.png" alt="">Codex Remote</div>
+      <h1>Run your agent<br>off your laptop.</h1>
+      <p>Codex or Claude Code, on a cloud machine you control.</p>
+    </div>
+    <div class="proof meta"><span>Mac menu bar app</span><span>01 / 05</span></div>
+    <div class="screen-wrap"><img class="screen" src="../../site/img/01-panel.png" alt="Codex Remote machine list"></div>
+    <div class="caption"><b>Two machines. One place to see what is running.</b></div>
+    <div class="folio"><span>codexremote.io</span><span>MIT · OPEN SOURCE</span></div>
+  </article>
+
+  <article class="poster p2" data-index="2" aria-label="Choose a provider and agents">
+    <div class="head"><span class="brand">Codex Remote</span><span class="meta">02 / 05 · SETUP</span></div>
+    <h1>Choose the cloud.<br>Pick the agent.</h1>
+    <p>One form provisions a server in your own account and installs Codex, Claude Code, or both.</p>
+    <div class="steps">
+      <div class="step"><b>01</b><span>Provider and region</span></div>
+      <div class="step"><b>02</b><span>Server size and price</span></div>
+      <div class="step"><b>03</b><span>Agents to install</span></div>
+    </div>
+    <div class="photo"><img class="screen" src="../../site/img/03-new-machine.png" alt="New machine window"></div>
+  </article>
+
+  <article class="poster p3" data-index="3" aria-label="Persistent agents and live machine status">
+    <div class="photo"><img class="screen" src="../../site/img/02-expanded.png" alt="Expanded machine status"></div>
+    <div class="copy">
+      <h1>Close the lid.<br>Keep the session.</h1>
+      <p>Agents run as services on the machine. See live sessions, CPU, and memory from your menu bar.</p>
+      <div class="fact">Enabled at boot. Visible while you work.</div>
+    </div>
+    <div class="folio"><span>Codex Remote</span><span>03 / 05 · RUN</span></div>
+  </article>
+
+  <article class="poster p4" data-index="4" aria-label="Move a project to the remote machine">
+    <div class="top meta"><span>Codex Remote</span><span>04 / 05 · PROJECTS</span></div>
+    <h1>Bring the whole project.</h1>
+    <p>A clone alone leaves ignored configuration behind. This command brings it along.</p>
+    <div class="terminal">
+      <div class="title">Your Mac · terminal</div>
+      <div class="command"><span class="prompt">$</span> codex-remote push my-box</div>
+    </div>
+    <div class="route">
+      <div><div class="big">Your working project</div><div class="small">Tracked code and ignored .env files</div></div>
+      <div class="arrow">→</div>
+      <div><div class="big">Remote workspace</div><div class="small">Ready for Codex or Claude Code</div></div>
+    </div>
+    <div class="folio"><span>codexremote.io</span><span>MIT · OPEN SOURCE</span></div>
+  </article>
+
+  <article class="poster p5" data-index="5" aria-label="Use a copied prompt to guide setup">
+    <div class="copy">
+      <h1>Let your agent<br>help set itself up.</h1>
+      <p>The first-run screen gives you a prompt to paste into Codex or Claude. You stay in the loop.</p>
+      <div class="steps">
+        <div class="step"><b>01</b><span>Copy the setup prompt</span></div>
+        <div class="step"><b>02</b><span>Answer one question at a time</span></div>
+        <div class="step"><b>03</b><span>Review before creating</span></div>
+      </div>
+    </div>
+    <div class="photo"><img class="screen" src="../../site/img/05-empty-state.png" alt="First-run setup screen"></div>
+    <div class="folio"><span>Codex Remote</span><span>05 / 05 · GET STARTED</span></div>
+  </article>
+</body>
+</html>
