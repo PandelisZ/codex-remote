@@ -55,7 +55,7 @@ Point Codex Remote at your own registry for your own providers, including a home
 OpenTofu ships inside the app — there is nothing to install — and it is why the provider
 list is a list of data files rather than a list of hand-written API clients.
 
-![The Codex Remote menu bar panel: two machines, demo on Hetzner paused and perf-1 on AWS idle, each with a power toggle, and a New machine button.](site/img/01-panel.png)
+![The Codex Remote window: build-eu on Hetzner is paused, while project-west on AWS is running two sessions. Power controls, Open, and New machine are visible.](site/img/01-panel.png)
 
 ![The New machine window: provider, region, size with its monthly price, image, and a toggle for each agent.](site/img/03-new-machine.png)
 

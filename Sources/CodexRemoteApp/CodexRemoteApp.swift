@@ -27,15 +27,25 @@ struct CodexRemoteApp: App {
         }
         .menuBarExtraStyle(.window)
 
-        // The same panel as a real window. A menu bar item can be hidden by the user's
+        // The same content as a real window. A menu bar item can be hidden by the user's
         // menu bar manager (Bartender, Ice, a notch), which leaves the app unreachable —
         // and an accessory app has no window for UI automation or a screen recorder to
         // attach to. `CODEX_REMOTE_SHOW_IN_DOCK=1` opens this window at launch.
         Window("Codex Remote", id: CodexRemoteApp.panelWindowID) {
-            MenuBarView()
+            MenuBarView(showsPopoverHeader: false)
                 .environmentObject(state)
                 .frame(width: Theme.popoverWidth)
                 .fixedSize(horizontal: true, vertical: false)
+                .toolbar {
+                    ToolbarItem(placement: .primaryAction) {
+                        Button {
+                            state.refreshFromProviders()
+                        } label: {
+                            Label("Refresh machines", systemImage: "arrow.clockwise")
+                        }
+                        .help("Re-read state from every provider")
+                    }
+                }
         }
         .windowResizability(.contentSize)
         .defaultPosition(.topTrailing)

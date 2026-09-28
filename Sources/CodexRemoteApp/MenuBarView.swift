@@ -1,13 +1,14 @@
 import SwiftUI
 import CodexRemoteKit
 
-/// The menu bar popover.
+/// Content shared by the menu bar popover and its standalone window.
 ///
 /// The popover's own background is already a system material, so the machine list sits on
 /// it plainly as content. Liquid Glass appears once, on the action bar at the bottom —
 /// that bar is the control layer, and keeping glass to a single grouped container is what
 /// Apple means by using the effect sparingly.
 struct MenuBarView: View {
+    var showsPopoverHeader = true
     @EnvironmentObject private var state: AppState
     @Environment(\.openSettings) private var openSettings
     @Environment(\.openWindow) private var openWindow
@@ -18,9 +19,10 @@ struct MenuBarView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            header
-
-            Divider().opacity(0.5)
+            if showsPopoverHeader {
+                header
+                Divider().opacity(0.5)
+            }
 
             if state.machines.isEmpty {
                 emptyState
