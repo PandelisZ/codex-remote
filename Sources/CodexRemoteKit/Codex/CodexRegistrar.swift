@@ -61,6 +61,20 @@ public enum CodexRegistrar {
         try FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: url.path)
     }
 
+    /// Where the launcher finds the CLI.
+    ///
+    /// Resolved at write time to the binary inside the running app, so the launcher keeps
+    /// working when `codex-remote` is not on the user's PATH — the cask puts it there, a
+    /// manual download does not. Falls back to the name so a dev build still works.
+    static var cliPath: String {
+        let inBundle = Bundle.main.bundleURL
+            .appendingPathComponent("Contents/MacOS/codex-remote")
+        if FileManager.default.isExecutableFile(atPath: inBundle.path) { return inBundle.path }
+        let installed = "/Applications/CodexRemote.app/Contents/MacOS/codex-remote"
+        if FileManager.default.isExecutableFile(atPath: installed) { return installed }
+        return "codex-remote"
+    }
+
     /// The launcher's text, separated from writing it so it can be inspected and tested.
     public static func launcherScript(for machine: Machine) -> String {
         """
@@ -83,7 +97,11 @@ public enum CodexRegistrar {
         fi
 
         # The bearer token lives in the login keychain, not in this file.
-        token="$(security find-generic-password -s io.codexremote.credentials -a '\(machine.tokenKeychainAccount)' -w 2>/dev/null || true)"
+        #
+        # Read through codex-remote rather than `security find-generic-password`. The
+        # keychain item's access list names Codex Remote; /usr/bin/security is a generic
+        # tool it has no reason to trust, so every single launch raised a password dialog.
+        token="$(\(cliPath) token '\(machine.name)' 2>/dev/null || true)"
         if [ -z "$token" ]; then
           echo "codex-remote: no app-server token in the keychain for \(machine.name)." >&2
           echo "codex-remote: re-provision the machine from Codex Remote to reissue one." >&2

@@ -669,6 +669,22 @@ case "rm", "remove":
         fail(error.localizedDescription)
     }
 
+case "token":
+    // Used by the codex-attach launchers. They used to call `security find-generic-password`
+    // directly, which raised a keychain dialog on *every* launch: the item's access list
+    // names this app, and /usr/bin/security is a generic tool it has no reason to trust.
+    // Reading it here means one binary asking, which macOS can be told to allow once.
+    guard let name = args.positional.first else { fail("usage: codex-remote token <name>") }
+    let machine = findMachine(name)
+    do {
+        guard let token = try Keychain.get(account: machine.tokenKeychainAccount) else {
+            fail("no app-server token in the keychain for \(machine.name); re-provision it to reissue one.")
+        }
+        print(token.raw)
+    } catch {
+        fail(error.localizedDescription)
+    }
+
 case "connect-command":
     guard let name = args.positional.first else { fail("usage: codex-remote connect-command <name>") }
     print(CodexRegistrar.connectCommand(for: findMachine(name)))

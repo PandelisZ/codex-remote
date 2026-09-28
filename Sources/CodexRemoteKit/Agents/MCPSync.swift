@@ -42,6 +42,20 @@ public enum MCPSync {
         public let included: [Server]
         public let skipped: [(server: Server, reason: String)]
 
+        /// True when a server being carried over launches through Node.
+        ///
+        /// `portableCommands` promises that `npx`, `npm` and `node` exist on the machine
+        /// because the bootstrap installs them. Codex stopped needing Node when it moved to
+        /// a standalone binary, and Claude Code brings its own runtime — so nothing installs
+        /// it by default any more, and the promise has to be kept explicitly.
+        public var needsNode: Bool {
+            included.contains { server in
+                guard case .stdio(let command, _, _) = server.transport else { return false }
+                return ["npx", "npm", "node", "bunx", "bun"]
+                    .contains((command as NSString).lastPathComponent)
+            }
+        }
+
         public var summary: String {
             var parts: [String] = []
             if !included.isEmpty {

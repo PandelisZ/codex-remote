@@ -221,6 +221,17 @@ public final class ProvisionPipeline: @unchecked Sendable {
         var machine = input
         let ssh = client(for: machine)
 
+        // Node is no longer part of any agent's install — Codex is a standalone binary and
+        // Claude Code brings its own runtime — so it goes on only when an MCP server that is
+        // being carried over actually launches through it. On a stock Ubuntu image that one
+        // apt call was 87 seconds, which is most of a provision, spent on nothing.
+        if machine.spec.syncMCPServers, MCPSync.plan().needsNode {
+            publish(machine, "Installing Node.js for the MCP servers that need it")
+            let result = try await ssh.runScript(BootstrapScript.installNode(),
+                                                 timeout: 1800, label: "Node install")
+            relay(machine, result)
+        }
+
         if machine.runs(.codex) {
             machine.stage = .installingCodex
             publish(machine, "Installing the Codex CLI")
@@ -333,10 +344,15 @@ public final class ProvisionPipeline: @unchecked Sendable {
             ]
         }
 
-        if let post = BootstrapScript.postSetup(plan(for: machine)) {
-            publish(machine, "Running your post-setup script")
-            let postResult = try await ssh.runScript(post, timeout: 3600, label: "post-setup script")
-            relay(machine, postResult)
+        // Extra packages and the user's setup script are handed to a systemd unit and left
+        // to run. They were inline, which kept the machine out of Ready for as long as they
+        // took — a minute for a few packages, far longer for a script that builds a
+        // toolchain — while Codex and Claude had been usable the whole time.
+        if let deferred = BootstrapScript.deferredSetup(plan(for: machine)) {
+            let result = try await ssh.runScript(deferred, timeout: 120, label: "deferred setup")
+            relay(machine, result)
+            publish(machine, "Extra packages and your setup script are running in the "
+                    + "background — `codex-remote status \(machine.name)` reports when they finish")
         }
         return machine
     }

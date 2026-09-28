@@ -37,7 +37,8 @@ final class BootstrapScriptTests: XCTestCase {
         try assertValidShell(BootstrapScript.basePackages(plan), "base")
         try assertValidShell(BootstrapScript.installCodex(plan), "codex")
         try assertValidShell(BootstrapScript.installService(plan), "service")
-        try assertValidShell(XCTUnwrap(BootstrapScript.postSetup(plan)), "post-setup")
+        try assertValidShell(BootstrapScript.installNode(), "node")
+        try assertValidShell(XCTUnwrap(BootstrapScript.deferredSetup(plan)), "deferred-setup")
         try assertValidShell(BootstrapScript.uninstall(), "uninstall")
     }
 
@@ -67,9 +68,21 @@ final class BootstrapScriptTests: XCTestCase {
     }
 
     func testCodexStageHonoursAPinnedVersion() {
-        XCTAssertTrue(BootstrapScript.installCodex(plan).contains("@openai/codex@0.157.0"))
+        XCTAssertTrue(BootstrapScript.installCodex(plan).contains("CODEX_RELEASE='0.157.0'"))
         let unpinned = BootstrapPlan(workspacePath: "/root/workspace", remotePort: 1456)
-        XCTAssertTrue(BootstrapScript.installCodex(unpinned).contains("@openai/codex@latest"))
+        XCTAssertFalse(BootstrapScript.installCodex(unpinned).contains("CODEX_RELEASE"))
+    }
+
+    /// Codex is a prebuilt binary now. Going back through npm would put Node on the critical
+    /// path again, which measured 87s on a stock Ubuntu image against 5-8s for the binary.
+    func testCodexInstallsWithoutNode() {
+        let script = BootstrapScript.installCodex(plan)
+        XCTAssertFalse(script.contains("npm install"))
+        XCTAssertFalse(script.contains("nodesource"))
+        XCTAssertTrue(script.contains("chatgpt.com/codex/install.sh"))
+        // /root is mode 700, so the package cannot live in the service user's home if the
+        // agent runs as anyone else.
+        XCTAssertTrue(script.contains("CODEX_HOME=/opt/codex"))
     }
 
     /// Extra packages come from a free-text field, so they must not be able to become
@@ -77,11 +90,26 @@ final class BootstrapScriptTests: XCTestCase {
     func testExtraPackagesAreFilteredToPackageNames() {
         let hostile = BootstrapPlan(workspacePath: "/root/workspace", remotePort: 1456,
                                     extraPackages: ["golang-go", "; rm -rf /", "$(whoami)", "a&&b"])
-        let script = BootstrapScript.basePackages(hostile)
+        let script = try! XCTUnwrap(BootstrapScript.deferredSetup(hostile))
         XCTAssertTrue(script.contains("golang-go"))
         XCTAssertFalse(script.contains("rm -rf /"))
         XCTAssertFalse(script.contains("$(whoami)"))
         XCTAssertFalse(script.contains("a&&b"))
+    }
+
+    /// Extra packages and the user's script must not hold up Ready: the agents are usable
+    /// long before either finishes, and a setup script can run for many minutes.
+    func testExtrasAndSetupScriptRunInTheBackground() throws {
+        let script = try XCTUnwrap(BootstrapScript.deferredSetup(plan))
+        XCTAssertTrue(script.contains("systemctl start --no-block"))
+        XCTAssertTrue(script.contains(BootstrapScript.deferredSetupServiceName))
+        // The base stage no longer carries them.
+        XCTAssertFalse(BootstrapScript.basePackages(plan).contains("golang-go"))
+    }
+
+    func testNothingIsDeferredWhenThereIsNothingToDefer() {
+        let bare = BootstrapPlan(workspacePath: "/root/workspace", remotePort: 1456)
+        XCTAssertNil(BootstrapScript.deferredSetup(bare))
     }
 
     func testWorkspacePathReachesEveryStageThatNeedsIt() {

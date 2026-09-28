@@ -86,9 +86,6 @@ public enum BootstrapScript {
     /// Stage 1: base OS packages. Split from the Codex install so the UI can show progress
     /// and so a failure points at the step that actually broke.
     public static func basePackages(_ plan: BootstrapPlan) -> String {
-        let extras = plan.extraPackages
-            .filter { $0.range(of: "^[A-Za-z0-9][A-Za-z0-9+._-]*$", options: .regularExpression) != nil }
-            .joined(separator: " ")
         return """
         \(preamble)
 
@@ -122,7 +119,7 @@ public enum BootstrapScript {
         export DEBIAN_FRONTEND=noninteractive
         $APT update -qq
         $APT install -y -qq --no-install-recommends \\
-          ca-certificates curl git ripgrep jq tmux rsync unzip build-essential python3 iproute2 psmisc bubblewrap \(extras)
+          ca-certificates curl git ripgrep jq tmux rsync unzip build-essential python3 iproute2 psmisc bubblewrap
 
         # The machine answers to the name the user gave it — in its own shell prompt, in
         # `who`, and in anything the agents report about where they are running.
@@ -144,42 +141,79 @@ public enum BootstrapScript {
         """
     }
 
-    /// Stage 2: Node (Codex ships as an npm package) and the Codex CLI itself.
+    /// Stage 2: the Codex CLI.
+    ///
+    /// Installed from OpenAI's own standalone installer, which fetches a prebuilt binary and
+    /// checks it against a published SHA-256. This used to go through npm, which meant
+    /// installing Node first, and Node was by far the slowest thing in the whole provision:
+    /// measured on a stock Ubuntu 26.04 EC2 instance, `apt install nodejs npm` took 87s and
+    /// the npm install 10s, against 5-8s for the standalone binary. Adding NodeSource's repo,
+    /// which the old script did on every machine, cost more still.
+    ///
+    /// `CODEX_HOME` here only decides where the installer unpacks the package. It is set to a
+    /// shared path rather than left at the service user's home, because the default puts the
+    /// binary under /root/.codex, and /root is mode 700 — unreadable to a service running as
+    /// anyone else. Codex's *config* home is untouched and stays per-user.
     public static func installCodex(_ plan: BootstrapPlan) -> String {
-        let spec = plan.codexVersion.map { "@openai/codex@\($0)" } ?? "@openai/codex@latest"
+        let release = plan.codexVersion.map { "CODEX_RELEASE='\($0)'" } ?? ""
         return """
         \(preamble)
 
-        need_node=1
-        if command -v node >/dev/null 2>&1; then
-          major="$(node -p 'process.versions.node.split(".")[0]' 2>/dev/null || echo 0)"
-          if [ "$major" -ge 20 ]; then need_node=0; fi
-        fi
+        say "Installing the Codex CLI"
+        export CODEX_NON_INTERACTIVE=1
+        export CODEX_INSTALL_DIR=/usr/local/bin
+        export CODEX_HOME=/opt/codex
+        \(release)
+        mkdir -p /opt/codex
+        curl -fsSL https://chatgpt.com/codex/install.sh | sh >/dev/null
 
-        if [ "$need_node" = "1" ]; then
-          say "Installing Node.js 22"
-          wait_for_apt
-          curl -fsSL https://deb.nodesource.com/setup_22.x | bash - >/dev/null
-          export DEBIAN_FRONTEND=noninteractive
-          $APT install -y -qq nodejs
-        else
-          say "Node.js $(node -v) already present"
-        fi
+        # The installer unpacks as root; the agent may not run as root.
+        chmod -R a+rX /opt/codex
 
-        say "Installing \(spec)"
-        npm install -g --no-fund --no-audit '\(spec)' >/dev/null
-
-        # npm's global bin is not always on a non-login shell's PATH; systemd needs a
-        # stable absolute path, so publish one.
-        codex_bin="$(command -v codex || true)"
-        if [ -z "$codex_bin" ]; then
-          codex_bin="$(npm root -g)/../bin/codex"
-        fi
-        codex_bin="$(readlink -f "$codex_bin")"
-        ln -sf "$codex_bin" /usr/local/bin/codex
+        [ -x /usr/local/bin/codex ] || die "the Codex installer did not leave a binary at /usr/local/bin/codex"
         echo "CODEX_BIN=/usr/local/bin/codex"
         echo "CODEX_VERSION=$(/usr/local/bin/codex --version 2>/dev/null | head -1)"
         say "Codex installed"
+        """
+    }
+
+    /// Node, installed only when something on the machine actually needs it.
+    ///
+    /// Nothing does by default any more: Codex is a standalone binary and Claude Code brings
+    /// its own runtime. But `MCPSync` calls a server portable when it launches through `npx`,
+    /// `npm` or `node`, on the grounds that the bootstrap installs them — so when such a
+    /// server is being carried over, that promise has to be kept.
+    ///
+    /// Ubuntu 26.04 ships Node 22, so the distro package is preferred. NodeSource is the
+    /// fallback for older images (24.04 ships Node 18), and costs an extra repo and an
+    /// `apt-get update` against it.
+    public static func installNode(minimumMajor: Int = 20) -> String {
+        """
+        \(preamble)
+
+        if command -v node >/dev/null 2>&1; then
+          major="$(node -p 'process.versions.node.split(".")[0]' 2>/dev/null || echo 0)"
+          if [ "$major" -ge \(minimumMajor) ]; then
+            say "Node.js $(node -v) already present"
+            exit 0
+          fi
+        fi
+
+        wait_for_apt
+        export DEBIAN_FRONTEND=noninteractive
+        candidate="$(apt-cache policy nodejs 2>/dev/null | awk '/Candidate:/{print $2}')"
+        candidate_major="${candidate%%.*}"
+        case "$candidate_major" in ''|*[!0-9]*) candidate_major=0 ;; esac
+
+        if [ "$candidate_major" -ge \(minimumMajor) ]; then
+          say "Installing Node.js $candidate_major from Ubuntu"
+          $APT install -y -qq nodejs npm
+        else
+          say "Installing Node.js 22 from NodeSource"
+          curl -fsSL https://deb.nodesource.com/setup_22.x | bash - >/dev/null
+          $APT install -y -qq nodejs
+        fi
+        say "Node.js $(node -v) ready"
         """
     }
 
@@ -577,16 +611,81 @@ public enum BootstrapScript {
         """
     }
 
-    /// Stage 4: whatever the user wants on top — repo clones, language toolchains, dotfiles.
-    public static func postSetup(_ plan: BootstrapPlan) -> String? {
-        guard let custom = plan.postSetupScript?.trimmingCharacters(in: .whitespacesAndNewlines),
-              !custom.isEmpty else { return nil }
-        return """
+    /// Stage 4: extra packages and the user's own setup script — off the critical path.
+    ///
+    /// Both used to run inline, which meant the machine was not Ready until they finished:
+    /// `apt install` of a few packages is a minute, and a setup script that builds a
+    /// toolchain or clones a large repo can be many. Nothing about Codex or Claude needs
+    /// either of them, so waiting bought nothing.
+    ///
+    /// They now run as a oneshot unit, started with `--no-block` once the agents are up. The
+    /// unit is `RemainAfterExit`, so `systemctl is-active` reads `active` when it finished
+    /// and `failed` when it did not, which is how `status` reports it afterwards. Output goes
+    /// to a log rather than back over the provisioning connection, because by then there is
+    /// nothing on the other end reading it.
+    ///
+    /// Returns nil when there is nothing to defer.
+    public static func deferredSetup(_ plan: BootstrapPlan) -> String? {
+        let packages = plan.extraPackages
+            .filter { $0.range(of: "^[A-Za-z0-9][A-Za-z0-9+._-]*$", options: .regularExpression) != nil }
+            .joined(separator: " ")
+        let custom = plan.postSetupScript?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        guard !packages.isEmpty || !custom.isEmpty else { return nil }
+
+        let body = """
         \(preamble)
+
+        \(packages.isEmpty ? "" : """
+        say "Installing extra packages: \(packages)"
+        wait_for_apt
+        export DEBIAN_FRONTEND=noninteractive
+        $APT install -y -qq \(packages)
+        say "Extra packages installed"
+        """)
+
+        \(custom.isEmpty ? "" : """
         cd '\(plan.workspacePath)'
         say "Running your post-setup script"
         \(custom)
         say "Post-setup script finished"
+        """)
+        """
+
+        let unit = """
+        [Unit]
+        Description=Codex Remote - deferred setup (extra packages and your setup script)
+        After=network-online.target
+        Wants=network-online.target
+
+        [Service]
+        Type=oneshot
+        RemainAfterExit=yes
+        WorkingDirectory=\(plan.workspacePath)
+        ExecStart=/usr/local/lib/codex-remote-setup.sh
+        StandardOutput=append:/var/log/codex-remote-setup.log
+        StandardError=append:/var/log/codex-remote-setup.log
+        """
+
+        return """
+        \(preamble)
+
+        install -d /usr/local/lib
+        cat > /usr/local/lib/codex-remote-setup.sh <<'CODEX_REMOTE_DEFERRED_EOF'
+        \(body)
+        CODEX_REMOTE_DEFERRED_EOF
+        sed -i 's/^        //' /usr/local/lib/codex-remote-setup.sh
+        chmod 0755 /usr/local/lib/codex-remote-setup.sh
+
+        cat > /etc/systemd/system/\(deferredSetupServiceName).service <<'CODEX_REMOTE_DEFERRED_UNIT_EOF'
+        \(unit)
+        CODEX_REMOTE_DEFERRED_UNIT_EOF
+        sed -i 's/^        //' /etc/systemd/system/\(deferredSetupServiceName).service
+
+        systemctl daemon-reload
+        # --no-block is the whole point: provisioning reports the machine ready and this
+        # carries on by itself.
+        systemctl start --no-block \(deferredSetupServiceName).service
+        say "Extra setup is running in the background"
         """
     }
 
@@ -612,6 +711,9 @@ public enum BootstrapScript {
     /// because a freshly booted cloud image is usually mid-`unattended-upgrade`.
     /// Shared by every script Codex Remote runs remotely, so progress and failures come
     /// back through the same two markers the pipeline already parses.
+    /// Extra packages and the user's setup script, deferred so they cannot hold up Ready.
+    public static let deferredSetupServiceName = "codex-remote-setup"
+
     static let preamble = """
     set -euo pipefail
     say() { echo "::codex-remote:: $*"; }

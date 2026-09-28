@@ -37,8 +37,9 @@ final class CodexRegistrarTests: XCTestCase {
         let machine = makeMachine()
         let script = CodexRegistrar.launcherScript(for: machine)
 
-        XCTAssertTrue(script.contains("security find-generic-password"))
-        XCTAssertTrue(script.contains(machine.tokenKeychainAccount))
+        // Read through our own binary rather than /usr/bin/security: the keychain item's
+        // access list names Codex Remote, so the generic tool prompted on every launch.
+        XCTAssertTrue(script.contains("token '\(machine.name)'"))
         XCTAssertTrue(script.contains("export \(machine.tokenEnvVar)=\"$token\""),
                       "the env var must be assigned from the shell variable, not a literal")
         XCTAssertNil(script.range(of: "[0-9a-f]{64}", options: .regularExpression),
@@ -282,5 +283,40 @@ extension CodexRemoteControlTests {
                      BootstrapScript.remoteControlServiceName] {
             XCTAssertTrue(name.hasPrefix("codex-remote-"), "\(name) breaks the pattern")
         }
+    }
+}
+
+/// The codex-attach launchers read the app-server token from the keychain. Doing that with
+/// `security find-generic-password` raised a password dialog on every single launch: the
+/// item's access list names Codex Remote, and /usr/bin/security is a generic tool it has no
+/// reason to trust. Reading through our own binary means macOS can be told to allow it once.
+final class LauncherKeychainAccessTests: XCTestCase {
+    private var script: String {
+        let machine = Machine(spec: MachineSpec(name: "box", accountID: UUID(),
+                                                providerKind: .hetzner, region: "r",
+                                                size: "s", image: "i"),
+                              localPort: 14560, sshHostAlias: "codex-remote-box",
+                              privateKeyPath: "/dev/null")
+        return CodexRegistrar.launcherScript(for: machine)
+    }
+
+    func testTheLauncherDoesNotShellOutToTheSecurityTool() {
+        // Only actual commands count: the script explains this history in a comment, and
+        // matching that would make the test pass or fail on prose.
+        let commands = script.split(separator: "\n", omittingEmptySubsequences: false)
+            .filter { !$0.trimmingCharacters(in: .whitespaces).hasPrefix("#") }
+        for line in commands {
+            XCTAssertFalse(line.contains("security find-generic-password"),
+                           "every launch would raise a keychain password dialog: \(line)")
+        }
+    }
+
+    func testTheLauncherReadsTheTokenThroughTheCLI() {
+        XCTAssertTrue(script.contains("token 'box'"))
+    }
+
+    func testTheTokenNeverAppearsInTheLauncher() {
+        // It is read at run time, not baked in: these files are world-readable.
+        XCTAssertFalse(script.contains("io.codexremote.credentials"))
     }
 }
