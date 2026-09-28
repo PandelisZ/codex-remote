@@ -89,7 +89,7 @@ print("  site/latest.json ->", version)
 PY
 
 say "Committing and tagging"
-git add VERSION Sources/CodexRemoteKit/Support/Log.swift site/latest.json
+git add VERSION Sources/CodexRemoteKit/Support/Log.swift site/latest.json site/docs
 git commit -q -m "Codex Remote $VERSION"
 git tag "$TAG"
 git push -q origin main --tags
