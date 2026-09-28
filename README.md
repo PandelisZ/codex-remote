@@ -9,15 +9,6 @@ brew install --cask pandelisz/tap/codex-remote
 Or [download the latest release](https://github.com/PandelisZ/codex-remote/releases/latest).
 macOS 15+, Apple silicon or Intel. It lives in the menu bar, not the Dock.
 
-The build is ad-hoc signed rather than notarised, so macOS refuses a downloaded copy with
-*"CodexRemote is damaged and can't be opened"*. That is the quarantine flag, not a corrupt
-download, and right-click → Open does not clear it. Homebrew removes the flag for you; for
-a manual download, remove it yourself:
-
-```bash
-xattr -dr com.apple.quarantine /Applications/CodexRemote.app
-```
-
 [codexremote.io](https://codexremote.io) · not affiliated with OpenAI or Anthropic.
 
 Give it a cloud provider token. It creates a server with **OpenTofu**, installs **Codex**,
@@ -128,9 +119,9 @@ judges an app that arrives quarantined, and one you built yourself does not. `bu
 deliberately creates no signing identity of its own — an earlier version did, and its
 unauthorised private key raised a keychain dialog on every single rebuild.
 
-Published builds are a different matter: they are signed with a Developer ID certificate and
-notarised by the release workflow, because a download that is not notarised is reported by
-macOS as *damaged*. See [docs/releasing.md](docs/releasing.md).
+Published builds are a different matter: `Scripts/release.sh` signs them with a Developer ID
+certificate and notarises them with Apple, because a download that is not notarised is
+reported by macOS as *damaged*. See [docs/releasing.md](docs/releasing.md).
 
 ## Using it from the terminal
 

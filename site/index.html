@@ -332,8 +332,8 @@ figcaption b { font-weight: 600; color: var(--ink); }
                 Download the latest release
               </a>
               <span style="display:block;margin-top:7px">
-                Unzip, drag to Applications, then clear the quarantine flag as below. The app
-                keeps itself up to date after that.
+                Unzip and drag it to Applications. The app keeps itself up to date after
+                that.
               </span>
             </div>
           </div>
@@ -357,16 +357,6 @@ figcaption b { font-weight: 600; color: var(--ink); }
         </li>
       </ol>
 
-      <div class="caution">
-        <div class="label">Caution</div>
-        <p>
-          This build is ad-hoc signed, not notarised, so macOS calls a downloaded copy
-          &ldquo;damaged&rdquo;. That is the quarantine flag rather than a corrupt download,
-          and right-click &rarr; Open does not clear it. Homebrew removes the flag for you;
-          after a manual download, run
-          <code>xattr -dr com.apple.quarantine /Applications/CodexRemote.app</code>.
-        </p>
-      </div>
     </div>
 
     <figure>
