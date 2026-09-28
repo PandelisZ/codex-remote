@@ -99,6 +99,9 @@ TAP="$(mktemp -d)"
 git clone -q git@github.com:PandelisZ/homebrew-tap.git "$TAP"
 /usr/bin/sed -i '' -E "s/version \"[^\"]+\"/version \"$VERSION\"/" "$TAP/Casks/codex-remote.rb"
 /usr/bin/sed -i '' -E "s/sha256 \"[0-9a-f]{64}\"/sha256 \"$SHA\"/" "$TAP/Casks/codex-remote.rb"
+# The zap list still named the pre-0.4 home. `brew zap` was therefore leaving the real
+# state directory behind and deleting a path that no longer exists.
+/usr/bin/sed -i '' -E 's#"~/\.codex/codex-remote"#"~/.codex-remote"#' "$TAP/Casks/codex-remote.rb"
 # A notarised build carries its own ticket, so the cask no longer has to strip the
 # quarantine flag behind the user's back. No-op once it has already been removed.
 python3 "$ROOT/Scripts/cask-notarised.py" "$TAP/Casks/codex-remote.rb"
