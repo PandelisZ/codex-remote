@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<!--
+  Source for site/img/og.png. Rendered by Scripts/make-og.sh with headless Chrome at
+  exactly 1200x630, so the card uses the same webfonts as the site rather than an
+  approximation of them.
+
+  It is the manual's cover, because that is already what the site is: the share card should
+  look like the thing it links to. Sized for the small render — LinkedIn and Slack show this
+  around 500px wide, so nothing here is smaller than it can survive at 40%.
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Source+Serif+4:opsz,ital,wght@8..60,0,400;8..60,0,600;8..60,1,400&display=swap">
+<style>
+  /* The site's own tokens. */
+  :root {
+    --cover:     #8c1d2c;
+    --cover-ink: #f4efe7;
+    --live:      #52c77e;
+    --display: "Archivo", ui-sans-serif, system-ui, sans-serif;
+    --text:    "Source Serif 4", Georgia, "Times New Roman", serif;
+    --mono:    "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html, body { width: 1200px; height: 630px; }
+
+  body {
+    background: var(--cover);
+    color: var(--cover-ink);
+    font-family: var(--text);
+    /* Ink on a press sheet, not a screen: keep the edges soft rather than hinted. */
+    -webkit-font-smoothing: antialiased;
+    display: flex;
+    flex-direction: column;
+    padding: 64px 72px 58px;
+  }
+
+  /* A trim line, the way a cover is trimmed inside the board. */
+  .trim {
+    position: absolute;
+    inset: 26px;
+    border: 1px solid rgba(244, 239, 231, 0.22);
+    pointer-events: none;
+  }
+
+  .top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+  }
+
+  .imprint {
+    font-family: var(--mono);
+    font-size: 17px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    opacity: 0.72;
+  }
+
+  /* The app's own mark: three rack units, one of them running. */
+  .mark { display: block; }
+
+  .title {
+    margin-top: auto;
+    font-family: var(--display);
+    font-weight: 700;
+    font-size: 122px;
+    line-height: 0.94;
+    letter-spacing: -0.038em;
+  }
+
+  .edition {
+    font-family: var(--display);
+    font-size: 21px;
+    font-weight: 500;
+    letter-spacing: 0.26em;
+    text-transform: uppercase;
+    opacity: 0.86;
+    margin-top: 18px;
+  }
+
+  .rule {
+    height: 1px;
+    background: rgba(244, 239, 231, 0.3);
+    margin: 30px 0 26px;
+  }
+
+  .pitch {
+    font-size: 42px;
+    line-height: 1.24;
+    max-width: 44ch;
+    letter-spacing: -0.005em;
+  }
+  /* Kept on one line: breaking between 'Claude' and 'or Codex' splits the phrase the
+     whole sentence is built around. */
+  .pitch em { font-style: italic; white-space: nowrap; }
+
+  .foot {
+    margin-top: auto;
+    padding-top: 30px;
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 40px;
+    font-family: var(--mono);
+    font-size: 19px;
+  }
+
+  .cmd { opacity: 0.95; }
+  .cmd .sigil { opacity: 0.55; margin-right: 10px; }
+
+  .plate {
+    font-size: 15px;
+    line-height: 1.8;
+    text-align: right;
+    opacity: 0.78;
+    white-space: nowrap;
+  }
+</style>
+</head>
+<body>
+
+<div class="trim"></div>
+
+<div class="top">
+  <div class="imprint">codexremote.io</div>
+  <svg class="mark" width="92" height="92" viewBox="0 0 32 32" aria-hidden="true">
+    <rect x="6" y="5.5"  width="20" height="5" rx="1.6" fill="#f4efe7"/>
+    <rect x="6" y="13.5" width="20" height="5" rx="1.6" fill="#f4efe7"/>
+    <rect x="6" y="21.5" width="20" height="5" rx="1.6" fill="#f4efe7"/>
+    <circle cx="22" cy="8"  r="1.7" fill="#52c77e"/>
+    <circle cx="22" cy="16" r="1.7" fill="#8c1d2c" opacity="0.32"/>
+    <circle cx="22" cy="24" r="1.7" fill="#8c1d2c" opacity="0.32"/>
+  </svg>
+</div>
+
+<h1 class="title">Codex Remote</h1>
+<div class="edition">Operator&rsquo;s Guide</div>
+
+<div class="rule"></div>
+
+<p class="pitch">As simple as it gets to put <em>Claude or Codex</em> on a remote machine.</p>
+
+<div class="foot">
+  <div class="cmd"><span class="sigil">$</span>brew install --cask pandelisz/tap/codex-remote</div>
+  <div class="plate">
+    MACOS 15 OR LATER<br>
+    MIT &middot; OPEN SOURCE
+  </div>
+</div>
+
+</body>
+</html>
