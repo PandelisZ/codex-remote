@@ -123,15 +123,14 @@ cp -R build/CodexRemote.app /Applications/
 open /Applications/CodexRemote.app
 ```
 
-First build creates a self-signed **Codex Remote Local Dev** signing identity. That keeps the
-app's code signature stable, so macOS stops re-asking for keychain access on every rebuild.
-Signing with it needs its private key unlocked once:
+A local build is ad-hoc signed by `swift build`, which is all it needs: Gatekeeper only
+judges an app that arrives quarantined, and one you built yourself does not. `bundle.sh`
+deliberately creates no signing identity of its own — an earlier version did, and its
+unauthorised private key raised a keychain dialog on every single rebuild.
 
-```bash
-security set-key-partition-list -S apple-tool:,apple:,codesign: -s ~/Library/Keychains/login.keychain-db
-```
-
-Until that's done the build falls back to an ad-hoc signature and still works.
+Published builds are a different matter: they are signed with a Developer ID certificate and
+notarised by the release workflow, because a download that is not notarised is reported by
+macOS as *damaged*. See [docs/releasing.md](docs/releasing.md).
 
 ## Using it from the terminal
 
