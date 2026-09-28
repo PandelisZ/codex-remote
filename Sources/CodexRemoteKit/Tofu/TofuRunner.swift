@@ -220,16 +220,62 @@ public final class TofuRunner: @unchecked Sendable {
         let redacted = invocation.arguments.joined(separator: " ")
         Log.shared.debug("tofu", "\(redacted) (in \(invocation.workdir.lastPathComponent))")
 
-        let result = try await Shell.run(tofu, invocation.arguments,
+        var result = try await Shell.run(tofu, invocation.arguments,
                                          environment: environment,
                                          currentDirectory: invocation.workdir,
                                          timeout: invocation.timeout)
+
+        // A workspace whose provider plugins no longer match its lock file is a dead end:
+        // every later command fails the same way, including the destroy that would clean it
+        // up, so the machine cannot be removed from the app at all. It happens for ordinary
+        // reasons — the shared plugin cache is pruned, a provider is upgraded under a
+        // workspace that has sat untouched, a partial download. `init` is exactly the
+        // command that repairs it, it is safe to repeat, and re-running it costs seconds.
+        //
+        // So rather than surfacing the error, repair and retry once. Not for `init` itself,
+        // which would recurse.
+        if !result.succeeded,
+           invocation.arguments.first != "init",
+           Self.isRecoverableProviderFailure(result.combined) {
+            Log.shared.warn("tofu", "\(invocation.workdir.lastPathComponent): provider plugins are out of step with the lock file; re-initialising and retrying.")
+            onProgress?("Repairing the OpenTofu providers")
+            let repair = try? await Shell.run(
+                tofu, ["init", "-no-color", "-input=false", "-upgrade"],
+                environment: environment, currentDirectory: invocation.workdir, timeout: 600)
+            if repair?.succeeded == true {
+                result = try await Shell.run(tofu, invocation.arguments,
+                                             environment: environment,
+                                             currentDirectory: invocation.workdir,
+                                             timeout: invocation.timeout)
+            }
+        }
+
         guard result.succeeded else {
             throw Failure.commandFailed(command: invocation.arguments.first ?? "",
                                         workdir: invocation.workdir.path,
                                         output: result.combined)
         }
         return result
+    }
+
+    /// Failures that `tofu init` fixes, as opposed to ones the user has to act on.
+    ///
+    /// Kept deliberately narrow. Retrying a credential error or a quota error would just
+    /// fail twice as slowly, and retrying something genuinely destructive is worse than
+    /// reporting it.
+    static func isRecoverableProviderFailure(_ output: String) -> Bool {
+        let text = output.lowercased()
+        let signatures = [
+            "required plugins are not installed",
+            "please run \"tofu init\"",
+            "please run \"terraform init\"",
+            "provider requirements cannot be satisfied",
+            "missing or corrupted provider plugins",
+            "inconsistent dependency lock file",
+            "module not installed",
+            "initialization required",
+        ]
+        return signatures.contains { text.contains($0) }
     }
 
     /// `tofu init`. Safe to repeat; with the shared plugin cache the second call is quick.

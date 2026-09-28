@@ -422,3 +422,43 @@ extension ProviderRegistryDocumentTests {
 
     private func data(_ json: String) -> Data { Data(json.utf8) }
 }
+
+/// A workspace whose provider plugins no longer match its lock file is a dead end: every
+/// later command fails the same way, including the `destroy` that would clean it up, so the
+/// machine cannot be removed from the app at all. `init` repairs it, so the runner does that
+/// and retries once rather than handing the user an error they cannot act on.
+final class TofuSelfRepairTests: XCTestCase {
+    func testTheLockFileMismatchIsTreatedAsRepairable() {
+        // The exact text from a real failure, which is what made this visible.
+        let real = """
+        Error: Required plugins are not installed
+
+        The installed provider plugins are not consistent with the packages selected
+        in the dependency lock file:
+          - registry.opentofu.org/hetznercloud/hcloud: there is no package for
+            registry.opentofu.org/hetznercloud/hcloud 1.69.0 cached in .terraform/providers
+        """
+        XCTAssertTrue(TofuRunner.isRecoverableProviderFailure(real))
+    }
+
+    func testTheUsualInitPromptsAreRepairable() {
+        for text in ["Please run \"tofu init\"", "initialization required",
+                     "Module not installed", "Inconsistent dependency lock file"] {
+            XCTAssertTrue(TofuRunner.isRecoverableProviderFailure(text), text)
+        }
+    }
+
+    func testFailuresTheUserHasToActOnAreNotRetried() {
+        // Retrying these fails twice as slowly, and hides the real cause behind a repair
+        // step that was never going to help.
+        for text in [
+            "ExpiredToken: The security token included in the request is expired",
+            "error: shared core limit exceeded (resource_limit_exceeded)",
+            "InvalidKeyPair.Duplicate: The keypair already exists",
+            "api error InvalidParameterValue: Character sets beyond ASCII are not supported",
+            "Error: authentication failed: invalid token",
+        ] {
+            XCTAssertFalse(TofuRunner.isRecoverableProviderFailure(text), text)
+        }
+    }
+}
