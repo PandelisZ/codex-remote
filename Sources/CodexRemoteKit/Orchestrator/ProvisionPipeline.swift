@@ -287,6 +287,16 @@ public final class ProvisionPipeline: @unchecked Sendable {
                 reportMCPPlan(plan, on: machine)
             }
             try await ssh.writeFile(config, to: "\(codexHome)/config.toml", mode: "0600")
+
+            // Everything above is written over SSH as root, so on an image whose login user
+            // is not root — Amazon's Ubuntu AMIs log in as `ubuntu` — these land root-owned
+            // in that user's home, and the app-server runs as that user. Codex then fails
+            // with "failed to initialize sqlite state runtime under ~/.codex" and systemd
+            // restarts it forever. Invisible on every cloud that hands out root.
+            if machine.sshUser != "root" {
+                _ = try? await ssh.run("chown -R \(machine.sshUser):\(machine.sshUser) "
+                                       + "'\(codexHome)'", timeout: 60)
+            }
         }
 
         if machine.runs(.claudeCode) {
@@ -335,6 +345,18 @@ public final class ProvisionPipeline: @unchecked Sendable {
             let token = Self.generateToken()
             try credentials.write(token, for: machine.tokenKeychainAccount)
             try await ssh.writeFile(token.raw, to: "/etc/codex-remote/appserver.token", mode: "0600")
+            // 0600 and root-owned is right when the app-server runs as root, which it does
+            // on every cloud that hands out a root login. Amazon's Ubuntu images log in as
+            // `ubuntu`, the unit runs as that user, and Codex then exits with "failed to
+            // read websocket auth secret ... Permission denied". Handing the file to the
+            // one account that needs it keeps the mode as tight as it was.
+            if machine.sshUser != "root" {
+                // The directory as well as the file: writeFile creates it under `umask 077`,
+                // so it is mode 700 and root-owned, and the file inside is unreachable
+                // however it is owned. Both stay 0600/0700 — only the owner changes.
+                _ = try? await ssh.run("chown -R \(machine.sshUser):\(machine.sshUser) "
+                                       + "/etc/codex-remote", timeout: 60)
+            }
 
             let result = try await ssh.runScript(BootstrapScript.installService(plan(for: machine)),
                                                  timeout: 600, label: "app-server service")

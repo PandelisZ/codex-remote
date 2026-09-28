@@ -387,3 +387,44 @@ final class ServerOwnershipTests: XCTestCase {
                       "rm must delete the server by default for machines Codex Remote created")
     }
 }
+
+/// Everything Codex Remote writes to a machine goes over SSH as root, because the bootstrap
+/// needs root throughout. On an image whose login user is not root — Amazon's Ubuntu AMIs
+/// log in as `ubuntu` — files written into that user's home therefore land root-owned, and
+/// the agent that has to read them runs as that user.
+///
+/// Codex failed with "failed to initialize sqlite state runtime under ~/.codex" and systemd
+/// restarted it 28 times before provisioning gave up. It is invisible on Hetzner,
+/// DigitalOcean, Linode, Vultr and Scaleway, all of which hand out root.
+final class RemoteFileOwnershipTests: XCTestCase {
+    private var pipeline: String {
+        (try? String(contentsOfFile: #filePath.replacingOccurrences(
+            of: "Tests/CodexRemoteKitTests/ProviderTests.swift",
+            with: "Sources/CodexRemoteKit/Orchestrator/ProvisionPipeline.swift"),
+            encoding: .utf8)) ?? ""
+    }
+
+    func testCodexHomeIsHandedToTheUserThatRunsTheAgent() {
+        XCTAssertTrue(pipeline.contains("chown -R \\(machine.sshUser):\\(machine.sshUser) "),
+                      "Codex's home stays root-owned and the app-server cannot start")
+    }
+
+    func testClaudeHomeIsHandedOverToo() {
+        // This one was always there; keep it that way.
+        XCTAssertTrue(pipeline.contains("chown -R \\(plan.claudeUser):\\(plan.claudeUser) "))
+    }
+
+    func testTheTokenDirectoryIsHandedOverNotJustTheFile() {
+        // writeFile creates the directory under `umask 077`, so it is 700 and root-owned.
+        // Chowning only the file inside leaves it unreachable: the agent cannot traverse in.
+        XCTAssertTrue(pipeline.contains(#"chown -R \(machine.sshUser):\(machine.sshUser) "#)
+                      && pipeline.contains("/etc/codex-remote"),
+                      "only the token file is chowned; the directory stays root-only at 700")
+    }
+
+    func testTheAWSImageStillLogsInAsANonRootUser() {
+        // If this ever becomes root the two tests above stop meaning anything, and the bug
+        // they describe becomes unreachable until some future provider reintroduces it.
+        XCTAssertEqual(TofuModule.awsEC2.sshUser, "ubuntu")
+    }
+}

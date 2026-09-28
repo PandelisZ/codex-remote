@@ -50,6 +50,9 @@ echo "$VERSION" > VERSION
 say "Testing"
 swift test 2>&1 | tail -3
 
+say "Publishing the docs to the site"
+./Scripts/sync-site-docs.sh
+
 say "Building the app"
 ./Scripts/bundle.sh >/dev/null
 test -d build/CodexRemote.app

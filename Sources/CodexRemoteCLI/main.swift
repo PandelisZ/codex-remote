@@ -227,7 +227,16 @@ func followProvisioning(_ id: UUID) async {
             print("                 \(CodexRegistrar.connectCommand(for: machine))")
         }
         if machine.runs(.claudeCode) {
-            print("  Claude:        in your account — claude.ai/code, your phone, any Claude session")
+            // Said unconditionally, this claimed a machine was reachable from the user's
+            // account when Claude had installed but never signed in — which `status` on the
+            // same machine correctly reported as "not running".
+            let signedIn = machine.agentStatuses.first { $0.kind == .claudeCode }?.isRunning == true
+            if signedIn {
+                print("  Claude:        in your account — claude.ai/code, your phone, any Claude session")
+            } else {
+                print("  Claude:        installed, not signed in yet —")
+                print("                 codex-remote claude-login \(machine.name)")
+            }
             if let url = machine.claudeSessionURL { print("                 \(url)") }
         }
         print("  Shell access:  ssh \(machine.sshHostAlias)")

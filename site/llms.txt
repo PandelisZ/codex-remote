@@ -1,0 +1,67 @@
+# Codex Remote
+
+> A macOS menu bar app that turns a cloud account into remote Codex and Claude Code machines. You give it a provider token; it creates the server with OpenTofu, installs the agents, and wires each one up the way it expects to be reached. Open source, MIT, not affiliated with OpenAI or Anthropic.
+
+The two agents are reached in opposite directions, which is most of why this exists. The Codex desktop app SSHes **out** to a machine and starts `codex app-server` there, so the machine has to appear in `~/.ssh/config` as a concrete host. Claude Code dials **out** from the machine to Anthropic and turns up in the user's account, so the machine needs a signed-in `claude remote-control` daemon instead. Codex Remote sets up whichever the user asked for and keeps both working across reboots.
+
+Machines are real servers on the user's own cloud account, billed to them from the moment they exist. Nothing here is free.
+
+## For agents
+
+Codex Remote ships an MCP server, so an agent can create and manage machines directly. Start it with `codex-remote mcp-server` (stdio, JSON-RPC 2.0). The user adds it to their agent's MCP config once; after that the tools below are available.
+
+Read these before acting:
+
+- **Creating a machine spends the user's money.** `create_machine` bills to their cloud account until it is destroyed. Call `list_sizes` first and tell the user the monthly price in their own currency before you create anything.
+- **Destroying is irreversible.** `destroy_machine` takes a `confirm` argument that must equal the machine's exact name — a guard against a mistyped or hallucinated one. Ask the user in their own words first.
+- **`run_command` runs as root with no sandbox.** Treat it as you would a root shell on a production box.
+- **Removing a machine deletes its server** when Codex Remote created it. A host the user adopted is never deleted.
+- Tools are grouped into read, write and destroy permissions. A user can disable write and destroy entirely; if a call comes back refused, say so rather than working around it.
+
+### Tools
+
+| Tool | Level | What it does |
+|---|---|---|
+| `list_machines` | read | Every machine, with provider, region, size, health, running agent sessions, CPU and memory |
+| `machine_status` | read | Everything about one machine, including its SSH alias and workspace path |
+| `list_providers` | read | Which clouds are supported and which have an account configured |
+| `list_sizes` | read | Regions, sizes and images for one account, with monthly prices. Pass the region you intend to use — on EC2 image ids are per-region |
+| `list_local_projects` | read | Projects the user already works on, read from Codex's and Claude Code's own records |
+| `create_machine` | write | Create a server and install the agents. **Costs money** |
+| `sync_project` | write | Put a local project on a machine — clones from its git remote when the work is pushed, copies it when it is not |
+| `run_command` | write | Run a shell command over SSH. Root, no sandbox |
+| `set_power` | write | Stop or start a machine. Stopped keeps the disk, costs less, and everything comes back on boot |
+| `repair_machine` | write | Re-run the remote setup. Safe to repeat |
+| `destroy_machine` | destroy | Permanently delete a machine and its server |
+
+### A good first exchange
+
+The user says "put Claude on a box in London". A reasonable sequence is `list_providers` to see what they have configured, `list_sizes` with the region they want, then tell them what it will cost and wait for a yes before `create_machine`. Poll `machine_status` until its stage is Ready. `sync_project` if they want their code on it.
+
+## Docs
+
+- [README](https://github.com/PandelisZ/codex-remote#readme): what it is, install, and the CLI
+- [Architecture](https://codexremote.io/docs/architecture.md): how provisioning, tunnels and state fit together
+- [Agents](https://codexremote.io/docs/agents.md): how Codex and Claude Code differ, and why each is wired the way it is
+- [MCP](https://codexremote.io/docs/mcp.md): the MCP server, its tools and permissions
+- [Projects](https://codexremote.io/docs/projects.md): project sync, git and secrets
+- [Registry](https://codexremote.io/docs/registry.md): the provider registry format, for adding clouds without a release
+- [Adding a provider](https://codexremote.io/docs/adding-a-provider.md): a cloud is a TofuModule plus one registry line
+- [Releasing](https://codexremote.io/docs/releasing.md): signing, notarisation and the update feed
+- [Design](https://codexremote.io/docs/design.md): the interface rules the app follows
+
+## Install
+
+```
+brew install --cask pandelisz/tap/codex-remote
+```
+
+macOS 15 or later, Apple silicon or Intel. Signed with a Developer ID certificate and notarised, so a download opens normally. It lives in the menu bar and has no Dock icon.
+
+- [Latest release](https://github.com/PandelisZ/codex-remote/releases/latest)
+- [Update feed](https://codexremote.io/latest.json): version, url, sha256 — what installed copies poll
+- [Provider registry](https://codexremote.io/registry.json): the default catalogue of clouds
+
+## Clouds
+
+Hetzner, Amazon EC2, DigitalOcean, Linode, Vultr and Scaleway, plus an existing Linux host over SSH. Every one is described as data — a provider address, some HCL, and a list of credential fields — so a cloud can be added through the registry without shipping a new build.
