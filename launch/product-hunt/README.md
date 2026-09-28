@@ -14,10 +14,33 @@ These assets are ready for the Product Hunt draft for `https://codexremote.io`.
 | `gallery/05.png` | First-run setup prompt and provider connection | 1270 × 760 |
 | `codex-remote-launch.mp4` | Silent, captioned launch walkthrough | 1920 × 1080, 29.3 s |
 
-Upload the five gallery images in number order. The first is intended as the
-social preview. The video is silent so its story works on autoplay without
-sound. Product Hunt's video field accepts a YouTube or Loom URL; the MP4 must
-be uploaded to one of those services before that field can be filled.
+The five numbered gallery images form a complete sequence. The video is silent
+so its story works on autoplay without sound. Product Hunt's video field
+accepts a YouTube or Loom URL; the MP4 must be uploaded to one of those
+services before that field can be filled.
+
+The current draft uses the site's OG image as its first gallery item, followed
+by `gallery/01.png` and `gallery/05.png`. The other three graphics remain
+available if the gallery is expanded later.
+
+## YouTube upload copy
+
+**Title:** Codex Remote — Run Codex and Claude Code on your own cloud machine
+
+**Description:**
+
+> Codex Remote is an open-source macOS menu bar app that sets up coding agents
+> on a server in your own cloud account. Choose a provider and machine size,
+> install Codex or Claude Code, and manage the server from your Mac.
+>
+> This 29-second walkthrough shows the machine controls, setup flow, session
+> health, project sync, and first-run guide.
+>
+> Get the app: https://codexremote.io
+> Source code (MIT): https://github.com/PandelisZ/codex-remote
+> Install: brew install --cask pandelisz/tap/codex-remote
+>
+> Requires macOS 15 or later. Independent of OpenAI and Anthropic.
 
 The screenshots in the graphics come from the app's real SwiftUI views using
 the illustrative local state documented in [`site/img/README.md`](../../site/img/README.md).
